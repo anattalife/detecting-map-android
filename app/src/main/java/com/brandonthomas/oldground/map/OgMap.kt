@@ -188,7 +188,7 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
             val ts = TileSet("2.2.0", r.url).apply {
                 minZoom = r.minZoom
                 maxZoom = r.maxZoom
-                r.bounds?.let { setBounds(it[0], it[1], it[2], it[3]) }
+                // No setBounds: in MapLibre 11.6 it calls itself forever (stack overflow).
                 if (r.attribution.isNotEmpty()) attribution = r.attribution
             }
             s.addSource(RasterSource("ov", ts, 256))
