@@ -101,6 +101,8 @@ data class Settings(
     val lidarAzimuth: Int = 315,
     val overlayOpacity: Float = 0.75f,
     val metric: Boolean = false,
+    /** Show public land (USGS PAD-US) on real-world maps. */
+    val publicLand: Boolean = true,
     /** Background of the lower map in the anchor editor. */
     val alignBase: Layer = Layer.STREETS,
     /** Remembered layer choices (never OLDMAP, which depends on the map that's open). */

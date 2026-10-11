@@ -12,6 +12,15 @@ adb shell "run-as $P sh -c 'mkdir -p files/oldground/maps/ci1'"
 adb shell "run-as $P sh -c 'cat > files/oldground/maps/ci1/original.jpg'" < ci/testmap.jpg
 adb shell "run-as $P sh -c 'cat > files/oldground/data.json'" < ci/data.json
 adb shell "run-as $P ls -l files/oldground files/oldground/maps/ci1"
+# Public land service check (Columbus, Ohio area).
+curl -sS -m 30 "https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Manager_Type_PADUS/FeatureServer/0/query?where=1%3D1&geometryType=esriGeometryEnvelope&inSR=4326&geometry=-83.06,39.91,-82.97,39.98&outFields=OBJECTID,Unit_Nm,Mang_Type,Pub_Access&returnGeometry=true&outSR=4326&maxAllowableOffset=0.00008&geometryPrecision=5&f=geojson" > $OUT/padus.json
+python3 -c "
+import json,sys
+d=json.load(open('$OUT/padus.json'))
+f=d.get('features',[])
+print('PAD-US features:',len(f),'bytes:',len(open('$OUT/padus.json').read()),'top keys:',list(d.keys()))
+for x in f[:6]: print(' ',x.get('id'),x.get('properties'))
+" > $OUT/padus.txt 2>&1 || head -c 500 $OUT/padus.json > $OUT/padus.txt
 adb logcat -c
 : > $OUT/result.txt
 for mode in HOME OVERLAY SWIPE SPLIT DRIVE; do

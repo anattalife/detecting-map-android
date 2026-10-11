@@ -19,6 +19,7 @@ import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
@@ -38,7 +39,7 @@ sealed class Base {
 }
 
 /** The data drawn on top of a map, in drawing order. */
-enum class Data { TRACKS, MESH, ANCHORS, PINS, GHOST, GPS }
+enum class Data { LAND, TRACKS, MESH, ANCHORS, PINS, GHOST, GPS }
 
 data class Cam(val center: LngLat, val zoom: Double, val bearing: Double)
 
@@ -62,7 +63,10 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
 
     var onMove: ((Cam, Boolean) -> Unit)? = null
     var onIdle: ((Cam, Boolean) -> Unit)? = null
-    var onTap: ((LngLat, String?) -> Unit)? = null
+    /** A tap: where, the pin/anchor id hit (if any), and the public land hit (if any). */
+    var onTap: ((LngLat, String?, Map<String, String>?) -> Unit)? = null
+    /** Called whenever the map stops moving (several listeners allowed). */
+    val idleListeners = ArrayList<() -> Unit>()
     var onReady: ((OgMap) -> Unit)? = null
     var rotateEnabled = true
         set(v) { field = v; map?.uiSettings?.isRotateGesturesEnabled = v && interactive }
@@ -91,6 +95,7 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
             m.addOnCameraIdleListener {
                 onIdle?.invoke(cam(), userGesture)
                 userGesture = false
+                for (l in idleListeners.toList()) l()
             }
             m.addOnMapClickListener { ll ->
                 val p = m.projection.toScreenLocation(ll)
@@ -98,7 +103,11 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
                     m.queryRenderedFeatures(RectF(p.x - 24, p.y - 24, p.x + 24, p.y + 24), "pins-circle", "anchors-circle")
                         .firstOrNull()?.getStringProperty("id")
                 }.getOrNull()
-                onTap?.invoke(LngLat(ll.longitude, ll.latitude), hit)
+                val land = if (hit != null) null else runCatching {
+                    m.queryRenderedFeatures(p, "og-land-fill").firstOrNull()?.properties()?.entrySet()
+                        ?.associate { (k, v) -> k to (if (v.isJsonNull) "" else v.asString) }
+                }.getOrNull()
+                onTap?.invoke(LngLat(ll.longitude, ll.latitude), hit, land)
                 onTap != null
             }
             pendingCam?.let { setCamera(it.center, it.zoom, it.bearing) }
@@ -219,6 +228,18 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
         val sid = src.id
         val get = { k: String -> Expression.get(k) }
         when (d) {
+            Data.LAND -> {
+                val color = Expression.match(
+                    get("Mang_Type"), Expression.color(android.graphics.Color.parseColor("#F57C00")),
+                    Expression.stop("FED", Expression.color(android.graphics.Color.parseColor("#2E8B57"))),
+                    Expression.stop("STAT", Expression.color(android.graphics.Color.parseColor("#1E73BE"))),
+                    Expression.stop("LOC", Expression.color(android.graphics.Color.parseColor("#8E44AD"))),
+                    Expression.stop("TRIB", Expression.color(android.graphics.Color.parseColor("#8D6E63"))),
+                    Expression.stop("DIST", Expression.color(android.graphics.Color.parseColor("#00897B"))),
+                )
+                s.addLayer(FillLayer("og-land-fill", sid).withProperties(PropertyFactory.fillColor(color), PropertyFactory.fillOpacity(0.16f)))
+                s.addLayer(LineLayer("og-land-line", sid).withProperties(PropertyFactory.lineColor(color), PropertyFactory.lineWidth(2f), PropertyFactory.lineOpacity(0.9f)))
+            }
             Data.TRACKS -> s.addLayer(
                 LineLayer("og-tracks", sid).withProperties(
                     PropertyFactory.lineColor("#ff6d00"), PropertyFactory.lineWidth(3f), PropertyFactory.lineOpacity(0.85f),
@@ -314,6 +335,7 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
     fun onStop() = view.onStop()
     fun onDestroy() {
         onMove = null; onIdle = null; onTap = null; onReady = null
+        idleListeners.clear()
         view.onDestroy()
     }
     fun onLowMemory() = view.onLowMemory()

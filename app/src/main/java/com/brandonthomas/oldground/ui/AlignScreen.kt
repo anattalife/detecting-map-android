@@ -156,8 +156,8 @@ fun AlignScreen(nav: Nav, mapId: String) {
         bottom.onMove = { cam, _ ->
             if (georef.ready) top.setData(Data.GHOST, Features.ghost(georef.geoToImg(cam.center)?.first?.let(::toScan), C.rustHex))
         }
-        top.onTap = { _, hit -> if (hit != null) selected = hit }
-        bottom.onTap = { _, hit -> if (hit != null) selected = hit }
+        top.onTap = { _, hit, _ -> if (hit != null) selected = hit }
+        bottom.onTap = { _, hit, _ -> if (hit != null) selected = hit }
     }
 
     fun select(a: Anchor) {

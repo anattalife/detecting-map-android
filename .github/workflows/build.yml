@@ -86,6 +86,7 @@ jobs:
             echo
             echo '```'
             cat smoke/result.txt 2>/dev/null || echo "no result"
+            cat smoke/padus.txt 2>/dev/null
             echo '```'
             echo "App crash file:"
             echo '```'

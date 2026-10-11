@@ -84,9 +84,11 @@ import com.brandonthomas.oldground.map.Data
 import com.brandonthomas.oldground.map.Features
 import com.brandonthomas.oldground.map.OfflineAreas
 import com.brandonthomas.oldground.map.OgMap
+import com.brandonthomas.oldground.map.PublicLand
 import com.brandonthomas.oldground.map.Sources
 import com.brandonthomas.oldground.map.SwipeFrame
 import com.brandonthomas.oldground.map.TileJobs
+import kotlinx.coroutines.launch
 import kotlin.math.atan2
 import kotlin.math.roundToInt
 
@@ -152,6 +154,7 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
     var download by remember { mutableStateOf<Int?>(null) }
     var message by remember { mutableStateOf<Pair<String, String>?>(null) }
     var confirmDownload by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
+    var landInfo by remember { mutableStateOf<PublicLand.Info?>(null) }
     val camMemory = remember { arrayOfNulls<Cam>(1) }
     val userTookOver = remember { BooleanArray(1) }
 
@@ -186,7 +189,7 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
     val live = remember { mutableStateMapOf<String, Pair<OgMap, ScanFrame?>>() }
 
     // ---- shared map behaviour ----
-    fun onTapAt(scan: ScanFrame?): (LngLat, String?) -> Unit = { at, hit ->
+    fun onTapAt(scan: ScanFrame?): (LngLat, String?, Map<String, String>?) -> Unit = { at, hit, land ->
         val geo = if (scan != null) scan.toGeo(at) else at
         when {
             pinMode && geo != null -> {
@@ -194,6 +197,7 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
                 draft = PinDraft(geo, "", com.brandonthomas.oldground.data.PinKind.HOMESITE, "", null)
             }
             hit != null -> data.pins.firstOrNull { it.id == hit }?.let { p -> draft = PinDraft(p.geo, p.name, p.kind, p.note, p.id) }
+            land != null -> landInfo = PublicLand.describe(land)
         }
     }
     fun rememberCam(c: Cam, scan: ScanFrame?) {
@@ -398,7 +402,7 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
         // ---- keep data on every map current ----
         for ((_, pair) in live) {
             val (m, scan) = pair
-            MapDataSync(m, scan, data.pins, trackPts, fix)
+            MapDataSync(m, scan, data.pins, trackPts, fix, settings.publicLand)
         }
 
         // ---- follow me ----
@@ -488,6 +492,9 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
                         colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent),
                     )
                 }
+                SectionTitle("Public land")
+                Segmented(settings.publicLand, listOf(true to "Show", false to "Hide"), { v -> Repo.updateSettings { it.copy(publicLand = v) } })
+                Text("Federal, state, county and city land from USGS. Tap an area to see who manages it.", color = C.muted, fontSize = 13.sp)
                 SectionTitle("Units")
                 Segmented(settings.metric, listOf(false to "Feet / miles", true to "Meters / km"), { v -> Repo.updateSettings { it.copy(metric = v) } })
                 Pill("Save this area for offline", {
@@ -503,6 +510,7 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
                         else confirmDownload = "${layers.joinToString(" and ") { it.label }}, about $tiles tiles. Old maps are always available offline." to {
                             download = 0
                             val name = "${map?.name ?: "Hunt area"} ${java.text.DateFormat.getDateInstance().format(java.util.Date())}"
+                            if (settings.publicLand) Repo.scope.launch { PublicLand.prefetch(ctx, b) }
                             OfflineAreas.download(ctx, name, b, layers, settings, { download = it }) { err ->
                                 download = null
                                 if (err != null) message = "Download stopped" to err
@@ -534,6 +542,9 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
         }
     }
     message?.let { (t, b) -> MessageDialog(t, b) { message = null } }
+    landInfo?.let { i ->
+        MessageDialog(i.title, listOf(i.manager, i.access).filter { it.isNotBlank() }.joinToString(" · ") + "\n\n" + i.advice) { landInfo = null }
+    }
 }
 
 private fun lidarKey(s: Settings) = "${s.lidarStyle}-${s.lidarAzimuth}"
@@ -556,7 +567,38 @@ private fun LiveMap(name: String, m: OgMap, scan: ScanFrame?, live: MutableMap<S
 
 /** Pins, tracks and the GPS dot on one map, kept current. */
 @Composable
-private fun MapDataSync(m: OgMap, scan: ScanFrame?, pins: List<Pin>, tracks: Map<String, List<TrackPt>>, fix: Fix?) {
+private fun MapDataSync(m: OgMap, scan: ScanFrame?, pins: List<Pin>, tracks: Map<String, List<TrackPt>>, fix: Fix?, publicLand: Boolean) {
+    val ctx = LocalContext.current
+    // Public land on real-world maps, refreshed whenever the map stops moving.
+    androidx.compose.runtime.DisposableEffect(m, scan, publicLand) {
+        if (scan != null || !publicLand) {
+            m.setData(Data.LAND, Features.empty)
+            onDispose { }
+        } else {
+            val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
+            var job: kotlinx.coroutines.Job? = null
+            val refresh: () -> Unit = {
+                job?.cancel()
+                job = scope.launch {
+                    val b = m.visibleBounds() ?: return@launch
+                    val fc = try {
+                        PublicLand.features(ctx, b, m.cam().zoom)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        return@launch // keep what's shown
+                    }
+                    m.setData(Data.LAND, fc ?: Features.empty)
+                }
+            }
+            m.idleListeners.add(refresh)
+            refresh()
+            onDispose {
+                m.idleListeners.remove(refresh)
+                scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+            }
+        }
+    }
     val place: (LngLat) -> LngLat? = { g -> if (scan == null) g else scan.place(g) }
     val placeLine: (LngLat) -> LngLat? = { g -> if (scan == null) g else scan.placeAny(g) }
     LaunchedEffect(m, scan, pins) { m.setData(Data.PINS, Features.pins(pins, place)) }
