@@ -1,0 +1,70 @@
+# Builds the app on every push to main.
+#  - Success: the APK replaces the "test-build" release, so the download link never changes:
+#    https://github.com/anattalife/detecting-map-android/releases/download/test-build/oldground.apk
+#  - Either way: a comment on the commit says whether it built, with the errors if it didn't.
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Build and test
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain assembleDebug testDebugUnitTest 2>&1 | tee build.log
+
+      - name: Publish APK
+        if: success()
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk oldground.apk
+          gh release delete test-build --cleanup-tag -y || true
+          gh release create test-build oldground.apk \
+            --target "${{ github.sha }}" --prerelease \
+            --title "Test build ${{ github.run_number }}" \
+            --notes "Built from ${{ github.sha }}. Install oldground.apk on your Android device."
+          {
+            echo "BUILD OK (run ${{ github.run_number }})"
+            echo
+            echo "APK: https://github.com/${{ github.repository }}/releases/download/test-build/oldground.apk"
+          } > comment.txt
+          gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" -F body=@comment.txt
+
+      - name: Report errors
+        if: failure()
+        run: |
+          touch build.log
+          grep -nE "^e: |error:|FAILED|What went wrong|Could not|Unresolved|Exception" build.log | head -120 > errors.txt || true
+          if [ ! -s errors.txt ]; then tail -120 build.log > errors.txt; fi
+          {
+            echo "BUILD FAILED (run ${{ github.run_number }})"
+            echo
+            echo '```'
+            cut -c1-400 errors.txt
+            echo '```'
+          } > comment.txt
+          gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" -F body=@comment.txt
