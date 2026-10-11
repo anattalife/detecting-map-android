@@ -146,7 +146,9 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
             is Base.Geo -> when (b.layer) {
                 Layer.STREETS -> Sources.STREETS_STYLE to null
                 Layer.LIDAR -> null to Sources.rasterStyleJson(Sources.raster(Layer.LIDAR, settings, null), withAerialUnder = true)
-                Layer.TOPO, Layer.AERIAL -> null to Sources.rasterStyleJson(Sources.raster(b.layer, settings, null))
+                Layer.TOPO -> null to Sources.rasterStyleJson(Sources.raster(b.layer, settings, null))
+                // Esri over USGS: if there's no signal, saved USGS imagery shows underneath.
+                Layer.AERIAL -> null to Sources.rasterStyleJson(Sources.raster(b.layer, settings, null), withAerialUnder = Sources.hasEsri)
                 Layer.OLDMAP -> null to Sources.rasterStyleJson(null)
             }
             is Base.Scan -> null to Sources.rasterStyleJson(b.raster, background = "#ddd8c8")

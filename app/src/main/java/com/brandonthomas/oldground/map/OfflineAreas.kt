@@ -109,6 +109,8 @@ object OfflineAreas {
         val json = when (layer) {
             Layer.STREETS -> return Sources.STREETS_STYLE
             Layer.OLDMAP -> return null
+            // Satellite: save USGS imagery (Esri tiles aren't stored on the phone).
+            Layer.AERIAL -> Sources.rasterStyleJson(Sources.usgsAerial)
             else -> Sources.rasterStyleJson(Sources.raster(layer, s, null))
         }
         val f = File(context.filesDir, "styles/${layer.name.lowercase()}-${json.hashCode()}.json")

@@ -12,9 +12,12 @@ import java.io.File
 import java.net.URLEncoder
 
 /**
- * Free map sources only:
+ * Map sources:
  *  - Streets: OpenFreeMap (OpenStreetMap data, no key, commercial use allowed)
- *  - Topo / Satellite: USGS The National Map (US government, no key)
+ *  - Satellite: Esri World Imagery (ArcGIS Location Platform key) drawn over USGS aerial
+ *    imagery. Offline areas save the USGS imagery only, so satellite still shows without
+ *    signal. Without a key, USGS alone.
+ *  - Topo: USGS The National Map (US government, no key)
  *  - LiDAR: USGS 3DEP bare-earth elevation, shaded by the USGS server
  */
 object Sources {
@@ -24,6 +27,17 @@ object Sources {
     private const val USGS = "https://basemap.nationalmap.gov/arcgis/rest/services"
     const val TOPO = "$USGS/USGSTopo/MapServer/tile/{z}/{y}/{x}"
     const val AERIAL = "$USGS/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}"
+    private const val USGS_ATTRIB = "USGS The National Map"
+
+    private val ESRI_KEY = com.brandonthomas.oldground.BuildConfig.ESRI_KEY
+    val hasEsri get() = ESRI_KEY.isNotBlank()
+    private const val ESRI_ATTRIB = "Powered by Esri | Esri, Maxar, Earthstar Geographics, and the GIS User Community"
+    private val ESRI_IMAGERY get() =
+        "https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=" +
+            URLEncoder.encode(ESRI_KEY, "UTF-8")
+
+    /** USGS aerial imagery: what offline areas save for Satellite. */
+    val usgsAerial = Raster("aerial", AERIAL, 16f, attribution = USGS_ATTRIB)
 
     fun lidar(s: Settings): String {
         val rule = when (s.lidarStyle) {
@@ -43,8 +57,8 @@ object Sources {
 
     /** A tile layer for anything except Streets (which is a full vector style). */
     fun raster(layer: Layer, s: Settings, map: OldMap?): Raster? = when (layer) {
-        Layer.AERIAL -> Raster("aerial", AERIAL, 16f, attribution = "USGS The National Map")
-        Layer.TOPO -> Raster("topo", TOPO, 16f, attribution = "USGS The National Map")
+        Layer.AERIAL -> if (hasEsri) Raster("esri", ESRI_IMAGERY, 19f, attribution = ESRI_ATTRIB) else usgsAerial
+        Layer.TOPO -> Raster("topo", TOPO, 16f, attribution = USGS_ATTRIB)
         Layer.LIDAR -> Raster("lidar-${s.lidarStyle}-${s.lidarAzimuth}", lidar(s), 18f, attribution = "USGS 3DEP")
         Layer.OLDMAP -> map?.warp?.takeIf { it.ready }?.let { tiles(map.id, it, "old-${it.dir}-${it.zDone}") }
         Layer.STREETS -> null
@@ -65,13 +79,13 @@ object Sources {
     fun rasterStyleJson(r: Raster?, withAerialUnder: Boolean = false, background: String = "#e9e6dc"): String {
         val src = StringBuilder()
         val layers = StringBuilder("""{"id":"bg","type":"background","paint":{"background-color":"$background"}}""")
-        fun add(id: String, url: String, max: Float) {
+        fun add(id: String, url: String, max: Float, attribution: String) {
             if (src.isNotEmpty()) src.append(',')
-            src.append(""""$id":{"type":"raster","tiles":["$url"],"tileSize":256,"maxzoom":${max.toInt()}}""")
+            src.append(""""$id":{"type":"raster","tiles":["$url"],"tileSize":256,"maxzoom":${max.toInt()},"attribution":"$attribution"}""")
             layers.append(""",{"id":"$id","type":"raster","source":"$id"}""")
         }
-        if (withAerialUnder) add("aerial-under", AERIAL, 16f)
-        if (r != null) add(r.id, r.url, r.maxZoom)
+        if (withAerialUnder) add("aerial-under", AERIAL, 16f, USGS_ATTRIB)
+        if (r != null) add(r.id, r.url, r.maxZoom, r.attribution)
         return """{"version":8,"glyphs":"$GLYPHS","sources":{$src},"layers":[$layers]}"""
     }
 }
