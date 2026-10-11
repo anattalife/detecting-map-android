@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import com.brandonthomas.oldground.location.LocationHub
 import com.brandonthomas.oldground.ui.AlignScreen
+import com.brandonthomas.oldground.ui.CrashReport
 import com.brandonthomas.oldground.ui.HomeScreen
 import com.brandonthomas.oldground.ui.HuntScreen
 import com.brandonthomas.oldground.ui.OldGroundTheme
@@ -21,7 +22,7 @@ import com.brandonthomas.oldground.ui.PinsScreen
 sealed interface Screen {
     data object Home : Screen
     data class Align(val mapId: String) : Screen
-    data class Hunt(val mapId: String?, val pinId: String? = null) : Screen
+    data class Hunt(val mapId: String?, val pinId: String? = null, val mode: String? = null) : Screen
     data object Pins : Screen
 }
 
@@ -44,7 +45,12 @@ class MainActivity : ComponentActivity() {
         if (!LocationHub.hasPermission(this)) {
             askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
         }
-        setContent { OldGroundTheme { App() } }
+        // Used by the automated test to open a map straight away.
+        val start = buildList<Screen> {
+            add(Screen.Home)
+            intent?.getStringExtra("openMap")?.let { add(Screen.Hunt(it, mode = intent.getStringExtra("mode"))) }
+        }
+        setContent { OldGroundTheme { App(start) } }
     }
 
     override fun onResume() {
@@ -59,8 +65,8 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun App() {
-    val stack = remember { mutableStateListOf<Screen>(Screen.Home) }
+private fun App(start: List<Screen>) {
+    val stack = remember { mutableStateListOf<Screen>().apply { addAll(start) } }
     val nav = remember { Nav(stack) }
     BackHandler(enabled = stack.size > 1) { nav.back() }
     val s = stack.last()
@@ -69,8 +75,9 @@ private fun App() {
         when (s) {
             Screen.Home -> HomeScreen(nav)
             is Screen.Align -> AlignScreen(nav, s.mapId)
-            is Screen.Hunt -> HuntScreen(nav, s.mapId, s.pinId)
+            is Screen.Hunt -> HuntScreen(nav, s.mapId, s.pinId, s.mode)
             Screen.Pins -> PinsScreen(nav)
         }
     }
+    CrashReport()
 }

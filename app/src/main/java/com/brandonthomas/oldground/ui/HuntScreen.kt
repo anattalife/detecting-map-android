@@ -129,7 +129,7 @@ data class PinDraft(val geo: LngLat, val name: String, val kind: com.brandonthom
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun HuntScreen(nav: Nav, mapId: String?, pinId: String?) {
+fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = null) {
     val ctx = LocalContext.current
     val density = LocalDensity.current
     val data by Repo.data.collectAsState()
@@ -142,7 +142,7 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?) {
     val frame = remember(map, georef) { if (map != null && georef?.ready == true) ScanFrame(map, georef) else null }
     val hasOld = frame != null
 
-    var mode by rememberSaveable { mutableStateOf(Mode.OVERLAY) }
+    var mode by rememberSaveable { mutableStateOf(Mode.entries.firstOrNull { it.name == startMode } ?: Mode.OVERLAY) }
     val chosen = remember { mutableStateMapOf<Slot, Layer>() }
     var picking by remember { mutableStateOf<Slot?>(null) }
     var follow by remember { mutableStateOf(false) }

@@ -118,7 +118,9 @@ object TileJobs {
     // ---------- overlay ----------
 
     /** Builds (or rebuilds after anchors change) the overlay. */
-    fun ensureWarp(map: OldMap) {
+    fun ensureWarp(given: OldMap) {
+        // Always work from the saved record: a screen may hold an older copy.
+        val map = Repo.map(given.id) ?: given
         if (!map.aligned) return
         val key = map.anchorsKey()
         val existing = map.warp

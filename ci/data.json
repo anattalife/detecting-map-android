@@ -1,0 +1,7 @@
+{"maps":[{"id":"ci1","name":"CI test map","createdAt":0,"image":"original.jpg","width":2400,"height":1800,
+"anchors":[
+{"id":"a1","imgX":200.0,"imgY":200.0,"lng":-83.0017,"lat":39.9662},
+{"id":"a2","imgX":2200.0,"imgY":180.0,"lng":-82.9783,"lat":39.9664},
+{"id":"a3","imgX":250.0,"imgY":1600.0,"lng":-83.0011,"lat":39.9538},
+{"id":"a4","imgX":2150.0,"imgY":1650.0,"lng":-82.9789,"lat":39.9533}
+]}],"pins":[],"tracks":[],"settings":{}}
