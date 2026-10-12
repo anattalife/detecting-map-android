@@ -653,7 +653,7 @@ fun HuntScreen(
                     // Saving only saves: a site is often planned at home. If you're standing in it,
                     // starting a visit is offered, never automatic.
                     val inside = LocationHub.fix.value?.let { f -> Sites.contains(outline.map { LngLat(it[0], it[1]) }, f.geo) } == true
-                    if (inside && Repo.activeVisit == null) offerVisit = id to name else savedNote = "$name saved
+                    if (inside && Repo.activeVisit == null) offerVisit = id to name else savedNote = "$name saved"
                 }
             },
             modifier = Modifier.align(Alignment.BottomCenter),
