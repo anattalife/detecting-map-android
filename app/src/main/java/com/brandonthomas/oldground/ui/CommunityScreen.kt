@@ -83,6 +83,8 @@ fun CommunityRoot(nav: Nav, debug: String? = null) {
     val votes = remember { mutableStateMapOf<String, Boolean>() }
     val blocked by Community.blocked.collectAsState()
 
+    // Refresh who I am (e.g. made staff, or blocked someone on another phone).
+    LaunchedEffect(Unit) { if (Community.signedIn.value && !Community.demo) runCatching { Community.loadMe() } }
     LaunchedEffect(sort, filter, tick, blocked) {
         error = null
         runCatching { Community.feed(sort, filter) }
