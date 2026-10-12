@@ -145,6 +145,9 @@ fun HuntScreen(
     siteId: String? = null,
     /** Start recording a track as soon as the map opens (Start a visit). */
     startVisit: Boolean = false,
+    /** A short message to show when the map opens. */
+    notice: String? = null,
+    token: Long = 0,
 ) {
     val ctx = LocalContext.current
     val density = LocalDensity.current
@@ -177,7 +180,7 @@ fun HuntScreen(
     val corners = remember { mutableStateListOf<LngLat>().apply { redraw?.let { addAll(it.ring) } } }
     var siteName by remember { mutableStateOf(redraw?.name ?: "") }
     var siteAccess by remember { mutableStateOf(redraw?.access ?: SITE_ACCESS.first()) }
-    var savedNote by remember { mutableStateOf<String?>(null) }
+    var savedNote by remember { mutableStateOf(notice?.takeIf { com.brandonthomas.oldground.Once.first("notice-$token") }) }
     // Used by the automated screenshots to open a sheet or dialog.
     LaunchedEffect(debug) {
         kotlinx.coroutines.delay(1500)
@@ -191,7 +194,7 @@ fun HuntScreen(
         }
     }
     LaunchedEffect(startVisit) {
-        if (startVisit) {
+        if (startVisit && com.brandonthomas.oldground.Once.first("visit-$token")) {
             if (Repo.current.recording == null) TrackService.start(ctx)
             follow = true
         }
@@ -552,12 +555,12 @@ fun HuntScreen(
                     Repo.updateSite(redraw.id) { it.copy(name = name, access = siteAccess, outline = outline) }
                     nav.back()
                 } else {
-                    Repo.addSite(Site(Repo.newId(), name, siteAccess, outline, createdAt = System.currentTimeMillis()))
-                    drawing = null
-                    corners.clear()
-                    savedNote = "$name saved. Finds inside it go there."
+                    val id = Repo.newId()
+                    Repo.addSite(Site(id, name, siteAccess, outline, createdAt = System.currentTimeMillis()))
                     if (data.recording == null) TrackService.start(ctx)
-                    follow = true
+                    // This screen becomes the map for the new site, so coming back to it later
+                    // (from a find or the site's page) doesn't reopen "outline a new site".
+                    nav.replace(Screen.Hunt(mapId, mode = mode.name, siteId = id, startVisit = true, notice = "$name saved. Finds inside it go there."))
                 }
             },
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -765,17 +768,20 @@ private fun BottomPanel(
     val ctx = LocalContext.current
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { TrackService.start(ctx) }
     var collapsed by rememberSaveable { mutableStateOf(false) }
-    // Elapsed recording time, refreshed every 20 seconds.
+    // Elapsed recording time as a running clock: 2:05, then 1:02:05 past an hour.
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(recordingSince) {
         while (recordingSince != null) {
             now = System.currentTimeMillis()
-            kotlinx.coroutines.delay(20_000)
+            kotlinx.coroutines.delay(1_000)
         }
     }
     val elapsed = recordingSince?.let {
-        val mins = ((now - it) / 60_000).coerceAtLeast(0)
-        "${mins / 60}:${"%02d".format(mins % 60)}"
+        val secs = ((now - it) / 1000).coerceAtLeast(0)
+        val h = secs / 3600
+        val m = (secs % 3600) / 60
+        val sec = "%02d".format(secs % 60)
+        if (h > 0) "$h:${"%02d".format(m)}:$sec" else "$m:$sec"
     }
     val nearest = guided ?: fix?.let { f -> pins.minByOrNull { Mercator.distanceMeters(f.geo, it.geo) } }
     val shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)

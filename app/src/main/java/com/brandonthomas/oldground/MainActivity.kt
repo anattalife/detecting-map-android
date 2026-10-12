@@ -26,12 +26,20 @@ sealed interface Screen {
     data class Align(val mapId: String) : Screen
     data class Hunt(
         val mapId: String?, val pinId: String? = null, val mode: String? = null, val debug: String? = null,
-        val draw: String? = null, val siteId: String? = null, val startVisit: Boolean = false,
+        val draw: String? = null, val siteId: String? = null, val startVisit: Boolean = false, val notice: String? = null,
+        /** Tells one visit to this screen from another, so one-time actions (start recording, a notice) run once. */
+        val token: Long = System.nanoTime(),
     ) : Screen
     /** Sites, All finds, Pins & tracks (tab 0, 1, 2). */
     data class Sites(val tab: Int = 0) : Screen
     data class Site(val id: String, val debug: String? = null) : Screen
     data class Visit(val siteId: String, val day: String) : Screen
+}
+
+/** One-time actions already done, by screen token (so coming back to a screen doesn't repeat them). */
+object Once {
+    private val done = HashSet<String>()
+    @Synchronized fun first(key: String): Boolean = done.add(key)
 }
 
 class Nav(private val stack: MutableList<Screen>) {
@@ -102,7 +110,7 @@ private fun App(start: List<Screen>) {
         when (s) {
             Screen.Home -> HomeScreen(nav)
             is Screen.Align -> AlignScreen(nav, s.mapId)
-            is Screen.Hunt -> HuntScreen(nav, s.mapId, s.pinId, s.mode, s.debug, s.draw, s.siteId, s.startVisit)
+            is Screen.Hunt -> HuntScreen(nav, s.mapId, s.pinId, s.mode, s.debug, s.draw, s.siteId, s.startVisit, s.notice, s.token)
             is Screen.Sites -> SitesScreen(nav, s.tab)
             is Screen.Site -> SiteScreen(nav, s.id, s.debug)
             is Screen.Visit -> VisitScreen(nav, s.siteId, s.day)
