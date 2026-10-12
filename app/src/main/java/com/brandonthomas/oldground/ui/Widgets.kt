@@ -176,16 +176,16 @@ fun LayerTag(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
             .clip(shape)
             .background(C.panel)
             .clickable(onClick = onClick)
-            .padding(horizontal = 13.dp, vertical = 8.dp),
-    ) { Text("$text ▾", color = C.ink, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+            .padding(horizontal = 11.dp, vertical = 6.dp),
+    ) { Text("$text ▾", color = C.ink, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, maxLines = 1) }
 }
 
 /** A round white button floating over a map. */
 @Composable
-fun RoundButton(onClick: () -> Unit, label: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun RoundButton(onClick: () -> Unit, label: String, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 42.dp, content: @Composable () -> Unit) {
     Box(
         modifier
-            .size(46.dp)
+            .size(size)
             .shadow(4.dp, CircleShape, ambientColor = Color(0x4014201D), spotColor = Color(0x4014201D))
             .clip(CircleShape)
             .background(C.panel)
@@ -196,7 +196,7 @@ fun RoundButton(onClick: () -> Unit, label: String, modifier: Modifier = Modifie
 }
 
 /** Small line icons drawn in code (no icon library needed). */
-enum class Glyph { BACK, LAYERS, PIN, RECORD, STOP, FOLLOW, MORE, CHEVRON, PLUS, LIST, CAMERA, IMAGE, CLOSE }
+enum class Glyph { BACK, LAYERS, PIN, RECORD, STOP, FOLLOW, MORE, CHEVRON, PLUS, LIST, CAMERA, IMAGE, CLOSE, MAP, OUTLINE, COIN, BOOK, SEARCH, GEAR }
 
 @Composable
 fun GlyphIcon(g: Glyph, color: Color, modifier: Modifier = Modifier.size(22.dp)) {
@@ -231,6 +231,41 @@ fun GlyphIcon(g: Glyph, color: Color, modifier: Modifier = Modifier.size(22.dp))
             Glyph.PLUS -> {
                 drawLine(color, Offset(w * 0.5f, h * 0.18f), Offset(w * 0.5f, h * 0.82f), sw, StrokeCap.Round)
                 drawLine(color, Offset(w * 0.18f, h * 0.5f), Offset(w * 0.82f, h * 0.5f), sw, StrokeCap.Round)
+            }
+            Glyph.MAP -> drawPath(Path().apply {
+                moveTo(w * 0.12f, h * 0.25f); lineTo(w * 0.37f, h * 0.15f); lineTo(w * 0.63f, h * 0.25f); lineTo(w * 0.88f, h * 0.15f)
+                lineTo(w * 0.88f, h * 0.75f); lineTo(w * 0.63f, h * 0.85f); lineTo(w * 0.37f, h * 0.75f); lineTo(w * 0.12f, h * 0.85f); close()
+                moveTo(w * 0.37f, h * 0.15f); lineTo(w * 0.37f, h * 0.75f); moveTo(w * 0.63f, h * 0.25f); lineTo(w * 0.63f, h * 0.85f)
+            }, color, style = stroke)
+            Glyph.OUTLINE -> {
+                val pts = listOf(Offset(w * 0.17f, h * 0.29f), Offset(w * 0.67f, h * 0.17f), Offset(w * 0.83f, h * 0.63f), Offset(w * 0.29f, h * 0.83f))
+                drawPath(Path().apply { moveTo(pts[0].x, pts[0].y); for (q in pts.drop(1)) lineTo(q.x, q.y); close() }, color, style = stroke)
+                for (q in pts) drawCircle(color, w * 0.075f, q)
+            }
+            Glyph.COIN -> {
+                drawCircle(color, w * 0.34f, Offset(w / 2, h / 2), style = stroke)
+                drawCircle(color, w * 0.19f, Offset(w / 2, h / 2), style = Stroke(sw * 0.75f))
+            }
+            Glyph.BOOK -> {
+                drawPath(Path().apply {
+                    moveTo(w * 0.21f, h * 0.17f); lineTo(w * 0.79f, h * 0.17f); lineTo(w * 0.79f, h * 0.83f); lineTo(w * 0.29f, h * 0.83f)
+                    quadraticTo(w * 0.21f, h * 0.83f, w * 0.21f, h * 0.75f); close()
+                    moveTo(w * 0.21f, h * 0.73f); lineTo(w * 0.79f, h * 0.73f)
+                    moveTo(w * 0.37f, h * 0.35f); lineTo(w * 0.63f, h * 0.35f); moveTo(w * 0.37f, h * 0.48f); lineTo(w * 0.55f, h * 0.48f)
+                }, color, style = stroke)
+            }
+            Glyph.SEARCH -> {
+                drawCircle(color, w * 0.25f, Offset(w * 0.44f, h * 0.44f), style = stroke)
+                drawLine(color, Offset(w * 0.63f, h * 0.63f), Offset(w * 0.84f, h * 0.84f), sw * 1.1f, StrokeCap.Round)
+            }
+            Glyph.GEAR -> {
+                drawCircle(color, w * 0.14f, Offset(w / 2, h / 2), style = stroke)
+                for (k in 0 until 8) {
+                    val a = Math.toRadians(k * 45.0)
+                    val c = kotlin.math.cos(a).toFloat(); val sn = kotlin.math.sin(a).toFloat()
+                    drawLine(color, Offset(w / 2 + c * w * 0.25f, h / 2 + sn * h * 0.25f), Offset(w / 2 + c * w * 0.38f, h / 2 + sn * h * 0.38f), sw * 1.2f, StrokeCap.Round)
+                }
+                drawCircle(color, w * 0.25f, Offset(w / 2, h / 2), style = Stroke(sw * 0.8f))
             }
             Glyph.CLOSE -> {
                 drawLine(color, Offset(w * 0.26f, h * 0.26f), Offset(w * 0.74f, h * 0.74f), sw, StrokeCap.Round)

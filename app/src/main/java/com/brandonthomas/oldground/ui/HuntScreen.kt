@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -64,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.brandonthomas.oldground.MapRequest
 import com.brandonthomas.oldground.Nav
 import com.brandonthomas.oldground.data.Layer
 import com.brandonthomas.oldground.data.LidarStyle
@@ -100,7 +103,12 @@ import kotlinx.coroutines.launch
 import kotlin.math.atan2
 import kotlin.math.roundToInt
 
-enum class Mode(val label: String) { OVERLAY("Overlay"), SWIPE("Swipe"), SPLIT("Split"), DRIVE("Drive") }
+enum class Mode(val label: String, val hint: String) {
+    OVERLAY("Overlay", "one map over another"),
+    SWIPE("Swipe", "drag a divider between two maps"),
+    SPLIT("Split", "two maps, one above the other"),
+    DRIVE("Drive", "one map that follows and turns with you"),
+}
 
 /** Converts between real-world positions and the open old map's scan frame. */
 class ScanFrame(val map: OldMap, val georef: Georef) {
@@ -138,17 +146,18 @@ class ScanFrame(val map: OldMap, val georef: Georef) {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun HuntScreen(
-    nav: Nav, mapId: String?, pinId: String?, startMode: String? = null, debug: String? = null,
-    /** "new" to outline a new site, or a site's id to redraw its outline. */
-    draw: String? = null,
-    /** Open on this site. */
-    siteId: String? = null,
-    /** Start recording a track as soon as the map opens (Start a visit). */
-    startVisit: Boolean = false,
-    /** A short message to show when the map opens. */
-    notice: String? = null,
-    token: Long = 0,
+    nav: Nav,
+    /** The old map on top (null: today's maps only). */
+    mapId: String?,
+    /** The latest thing asked to be shown here (a find, a site, outline a site…). */
+    request: MapRequest?,
+    /** False while another tab covers the map: its pop-up sheets stay closed. */
+    visible: Boolean = true,
+    onPickOldMap: (String?) -> Unit = {},
 ) {
+    // The request this map opened with (decides where it first looks).
+    val first = remember { request }
+    val startMode = first?.mode
     val ctx = LocalContext.current
     val density = LocalDensity.current
     val data by Repo.data.collectAsState()
@@ -175,30 +184,15 @@ fun HuntScreen(
     var cardPin by remember { mutableStateOf<String?>(null) }
     var guideTo by remember { mutableStateOf<String?>(null) }
     // Outlining a site: "new" or the id of the site being redrawn.
-    val redraw = draw?.takeIf { it != "new" }?.let { id -> data.sites.firstOrNull { it.id == id } }
-    var drawing by remember { mutableStateOf(draw) }
-    val corners = remember { mutableStateListOf<LngLat>().apply { redraw?.let { addAll(it.ring) } } }
-    var siteName by remember { mutableStateOf(redraw?.name ?: "") }
-    var siteAccess by remember { mutableStateOf(redraw?.access ?: SITE_ACCESS.first()) }
-    var savedNote by remember { mutableStateOf(notice?.takeIf { com.brandonthomas.oldground.Once.first("notice-$token") }) }
-    // Used by the automated screenshots to open a sheet or dialog.
-    LaunchedEffect(debug) {
-        kotlinx.coroutines.delay(1500)
-        when (debug) {
-            null -> if (pinId != null) cardPin = pinId
-            "more" -> moreOpen = true
-            "pin" -> Repo.current.pins.firstOrNull { it.id == pinId }?.let { p -> draft = PinDraft.of(p) }
-            "card" -> cardPin = pinId
-            "new" -> Repo.current.pins.firstOrNull { it.id == pinId }?.let { p -> draft = PinDraft(p.geo, "", com.brandonthomas.oldground.data.PinKind.FIND, "", null) }
-
-        }
-    }
-    LaunchedEffect(startVisit) {
-        if (startVisit && com.brandonthomas.oldground.Once.first("visit-$token")) {
-            if (Repo.current.recording == null) TrackService.start(ctx)
-            follow = true
-        }
-    }
+    var drawing by remember { mutableStateOf<String?>(null) }
+    val redraw = drawing?.takeIf { it != "new" }?.let { id -> data.sites.firstOrNull { it.id == id } }
+    val corners = remember { mutableStateListOf<LngLat>() }
+    var siteName by remember { mutableStateOf("") }
+    var siteAccess by remember { mutableStateOf(SITE_ACCESS.first()) }
+    var savedNote by remember { mutableStateOf<String?>(null) }
+    var modePicking by remember { mutableStateOf(false) }
+    var oldMapPicking by remember { mutableStateOf(false) }
+    var searching by remember { mutableStateOf(false) }
     LaunchedEffect(savedNote) {
         if (savedNote != null) { kotlinx.coroutines.delay(4000); savedNote = null }
     }
@@ -223,8 +217,8 @@ fun HuntScreen(
         if (l != Layer.OLDMAP) Repo.updateSettings { it.copy(slots = it.slots + (k to l)) }
     }
 
-    val focus = pinId?.let { id -> data.pins.firstOrNull { it.id == id } }
-    val focusSite = (siteId ?: redraw?.id)?.let { id -> data.sites.firstOrNull { it.id == id } }
+    val focus = first?.pinId?.let { id -> data.pins.firstOrNull { it.id == id } }
+    val focusSite = (first?.siteId ?: first?.draw?.takeIf { it != "new" })?.let { id -> data.sites.firstOrNull { it.id == id } }
     val conf = LocalConfiguration.current
     val initial = remember {
         val siteBounds = focusSite?.let { Sites.bounds(it.ring) }
@@ -234,7 +228,7 @@ fun HuntScreen(
             val c = focus?.geo ?: map?.anchors?.takeIf { it.isNotEmpty() }?.let { a ->
                 LngLat(a.map { it.lng }.average(), a.map { it.lat }.average())
             } ?: LocationHub.fix.value?.geo ?: LngLat(-82.99, 39.96)
-            Cam(c, if (draw == "new") 17.5 else 16.0, 0.0)
+            Cam(c, if (first?.draw == "new" || focus != null) 17.5 else 16.0, 0.0)
         }
     }
     fun startCam() = camMemory[0] ?: initial
@@ -242,15 +236,75 @@ fun HuntScreen(
     // Maps currently on screen, with how to place real-world positions on each.
     val live = remember { mutableStateMapOf<String, Pair<OgMap, ScanFrame?>>() }
 
-    // Screenshots: four corners as if tapped, on open ground next to the seeded sites.
-    LaunchedEffect(debug) {
-        if (debug != "drawdemo") return@LaunchedEffect
-        kotlinx.coroutines.delay(1500)
-        val c = LngLat(-82.99080, 39.96060)
-        for ((_, p) in live) p.first.setCamera(c, 16.7)
+    /** Moves every map on screen to a real-world spot (placed on the scan for old-map panes). */
+    fun flyTo(g: LngLat, zoom: Double? = null) {
+        follow = false
+        userTookOver[0] = true
+        for ((name, p) in live) {
+            if (name == "upper") continue
+            val (m, scan) = p
+            if (scan != null) scan.placeAny(g)?.let { m.setCamera(it, zoom?.let { z -> z + scan.zoomShift(g) }) }
+            else m.setCamera(g, zoom)
+        }
+    }
+    fun startOutline(d: String) {
+        val site = d.takeIf { it != "new" }?.let { id -> Repo.current.sites.firstOrNull { it.id == id } }
+        drawing = d
         corners.clear()
-        corners.addAll(listOf(LngLat(c.lng - 0.0010, c.lat + 0.0006), LngLat(c.lng + 0.0008, c.lat + 0.0008), LngLat(c.lng + 0.0010, c.lat - 0.0005), LngLat(c.lng - 0.0007, c.lat - 0.0007)))
-        siteName = "Hendricks pasture"
+        site?.let { corners.addAll(it.ring) }
+        siteName = site?.name ?: ""
+        siteAccess = site?.access ?: SITE_ACCESS.first()
+        pinMode = false
+        cardPin = null
+    }
+
+    // Something asked to be shown here: a find, a site, a new outline, a visit to start.
+    LaunchedEffect(request?.token) {
+        val r = request ?: return@LaunchedEffect
+        if (!com.brandonthomas.oldground.Once.first("map-request-${r.token}")) return@LaunchedEffect
+        kotlinx.coroutines.delay(250) // let the maps attach
+        r.mode?.let { m -> Mode.entries.firstOrNull { it.name == m }?.let { mode = it } }
+        r.draw?.let { startOutline(it) }
+        r.notice?.let { savedNote = it }
+        val site = (r.siteId ?: r.draw?.takeIf { it != "new" })?.let { id -> Repo.current.sites.firstOrNull { it.id == id } }
+        val pin = r.pinId?.let { id -> Repo.current.pins.firstOrNull { it.id == id } }
+        when {
+            pin != null -> {
+                flyTo(pin.geo, 17.5)
+                if (r.debug == null) cardPin = pin.id
+            }
+            site != null -> Sites.bounds(site.ring)?.let { b ->
+                flyTo(Sites.center(site.ring)!!, Sites.fitZoom(b, conf.screenWidthDp.toFloat(), conf.screenHeightDp * 0.55f))
+            }
+            r.draw == "new" -> LocationHub.fix.value?.let { flyTo(it.geo, 17.5) }
+        }
+        if (r.startVisit) {
+            if (Repo.current.recording == null) TrackService.start(ctx)
+            follow = true
+        }
+        // Used by the automated screenshots to open a sheet or dialog.
+        if (r.debug == null) return@LaunchedEffect
+        kotlinx.coroutines.delay(1300)
+        when (r.debug) {
+            "more" -> moreOpen = true
+            "pin" -> pin?.let { draft = PinDraft.of(it) }
+            "card" -> cardPin = pin?.id
+            "new" -> pin?.let { draft = PinDraft(it.geo, "", com.brandonthomas.oldground.data.PinKind.FIND, "", null) }
+            "oldmaps" -> oldMapPicking = true
+            "modes" -> modePicking = true
+            "search" -> searching = true
+            "drawdemo" -> {
+                // Four corners as if tapped, on open ground next to the seeded sites.
+                val c = LngLat(-82.99080, 39.96060)
+                startOutline("new")
+                flyTo(c, 16.7)
+                corners.addAll(listOf(LngLat(c.lng - 0.0010, c.lat + 0.0006), LngLat(c.lng + 0.0008, c.lat + 0.0008), LngLat(c.lng + 0.0010, c.lat - 0.0005), LngLat(c.lng - 0.0007, c.lat - 0.0007)))
+                siteName = "Hendricks pasture"
+            }
+        }
+    }
+    androidx.activity.compose.BackHandler(enabled = visible && (drawing != null || pinMode)) {
+        if (pinMode) pinMode = false else { drawing = null; corners.clear(); nav.tab(com.brandonthomas.oldground.Tab.SITES) }
     }
 
     // ---- shared map behaviour ----
@@ -295,7 +349,7 @@ fun HuntScreen(
                     }
                     MapBox(m, Modifier.fillMaxSize())
                     FlowRow(
-                        Modifier.statusBarsPadding().padding(top = 64.dp, start = 12.dp, end = 12.dp),
+                        Modifier.statusBarsPadding().padding(top = 52.dp, start = 10.dp, end = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
@@ -368,7 +422,7 @@ fun HuntScreen(
                             ) { Text("‹ ›", color = C.accent, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp) }
                         }
                     }
-                    Box(Modifier.fillMaxWidth().statusBarsPadding().padding(top = 64.dp, start = 12.dp, end = 12.dp)) {
+                    Box(Modifier.fillMaxWidth().statusBarsPadding().padding(top = 52.dp, start = 10.dp, end = 10.dp)) {
                         LayerTag(left.label, { picking = Slot.SWIPE_LEFT }, Modifier.align(Alignment.TopStart))
                         LayerTag(right.label, { picking = Slot.SWIPE_RIGHT }, Modifier.align(Alignment.TopEnd))
                     }
@@ -378,7 +432,7 @@ fun HuntScreen(
                     val topLayer = slot(Slot.SPLIT_TOP)
                     val bottomLayer = slot(Slot.SPLIT_BOTTOM)
                     val leader = remember { arrayOf("top") }
-                    Column(Modifier.fillMaxSize().statusBarsPadding().padding(top = 56.dp)) {
+                    Column(Modifier.fillMaxSize().statusBarsPadding().padding(top = 50.dp)) {
                         val panes = listOf("top" to topLayer, "bottom" to bottomLayer)
                         val maps = HashMap<String, Pair<OgMap, ScanFrame?>>()
                         for ((side, layer) in panes) {
@@ -457,10 +511,10 @@ fun HuntScreen(
                         }
                         MapBox(m, Modifier.fillMaxSize())
                         if (scan != null && fix != null && scan.place(fix!!.geo) == null) {
-                            Toast("You're off the edge of this map", Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 110.dp), C.bad)
+                            Toast("You're off the edge of this map", Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 92.dp), C.bad)
                         }
                     }
-                    LayerTag(layer.label, { picking = Slot.DRIVE }, Modifier.statusBarsPadding().padding(top = 60.dp, start = 8.dp))
+                    LayerTag(layer.label, { picking = Slot.DRIVE }, Modifier.statusBarsPadding().padding(top = 52.dp, start = 10.dp))
                 }
             }
         }
@@ -480,7 +534,7 @@ fun HuntScreen(
         LaunchedEffect(fix, follow, mode) {
             val f = fix ?: return@LaunchedEffect
             // Without an old map, open on where you are once GPS finds you.
-            if (!follow && mapId == null && pinId == null && !userTookOver[0] && camMemory[0] == null) {
+            if (!follow && mapId == null && first?.pinId == null && first?.siteId == null && first?.draw == null && !userTookOver[0] && camMemory[0] == null) {
                 userTookOver[0] = true
                 for ((_, p) in live) if (p.second == null) p.first.setCamera(f.geo)
                 return@LaunchedEffect
@@ -495,44 +549,42 @@ fun HuntScreen(
             }
         }
 
-        // ---- top bar ----
+        // ---- top bar: one slim row ----
         Row(
-            Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 6.dp),
+            Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             if (drawing != null) {
-                RoundButton({ if (draw != null) nav.back() else { drawing = null; corners.clear() } }, "Cancel") { GlyphIcon(Glyph.CLOSE, C.ink) }
+                RoundButton({ drawing = null; corners.clear(); nav.tab(com.brandonthomas.oldground.Tab.SITES) }, "Cancel", size = 38.dp) {
+                    GlyphIcon(Glyph.CLOSE, C.ink, Modifier.size(18.dp))
+                }
                 Text(
                     if (corners.size < 3) "Tap each corner of the field or yard" else "Keep tapping corners, or save",
-                    Modifier.weight(1f).card(radius = 999).background(C.panel).padding(horizontal = 16.dp, vertical = 13.dp),
-                    fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = C.ink, maxLines = 1,
+                    Modifier.weight(1f).card(radius = 999).padding(horizontal = 14.dp, vertical = 10.dp),
+                    fontSize = 13.sp, fontWeight = FontWeight.Bold, color = C.ink, maxLines = 1,
                 )
             } else {
-                RoundButton({ nav.back() }, "Back") { GlyphIcon(Glyph.BACK, C.ink) }
-                Segmented(mode, Mode.entries.map { it to it.label }, { mode = it }, Modifier.weight(1f), dark = true)
+                RoundButton({ searching = true }, "Search a place", size = 38.dp) { GlyphIcon(Glyph.SEARCH, C.ink, Modifier.size(19.dp)) }
+                MapChip("${mode.label} ▾", { modePicking = true })
+                MapChip("${map?.name ?: "No old map"} ▾", { oldMapPicking = true }, Modifier.weight(1f, fill = false), highlight = map != null)
+                Spacer(Modifier.weight(1f))
+                RoundButton({ moreOpen = true }, "Layers", size = 38.dp) { GlyphIcon(Glyph.LAYERS, C.ink, Modifier.size(19.dp)) }
             }
         }
 
         // ---- status toasts ----
         val building = mapId?.let { progress["warp:$it"] ?: progress["scan:$it"] }
         Column(
-            Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 112.dp),
+            Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 96.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             if (building != null) Toast("Preparing old map… ${(building * 100).toInt()}%")
             download?.let { Toast("Saving area offline… $it%") }
             savedNote?.let { Toast(it, color = C.accent) }
-            if (drawing == null && !pinMode) fix?.let { f -> Sites.siteAt(data.sites, f.geo) }?.let { here ->
-                Text(
-                    "In ${here.name}",
-                    Modifier.card(radius = 999).background(C.panel).clickable { nav.go(Screen.Site(here.id)) }.padding(horizontal = 14.dp, vertical = 7.dp),
-                    color = C.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                )
-            }
             if (pinMode) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Toast("Tap the map to place a pin", color = C.accent)
+                Toast("Tap where you found it", color = C.accent)
                 Pill("Pin my spot", {
                     pinMode = false
                     val f = LocationHub.fix.value
@@ -553,23 +605,31 @@ fun HuntScreen(
                 val name = siteName.trim().ifBlank { "Site ${data.sites.size + 1}" }
                 if (redraw != null) {
                     Repo.updateSite(redraw.id) { it.copy(name = name, access = siteAccess, outline = outline) }
-                    nav.back()
+                    drawing = null
+                    corners.clear()
+                    nav.tab(com.brandonthomas.oldground.Tab.SITES)
                 } else {
-                    val id = Repo.newId()
-                    Repo.addSite(Site(id, name, siteAccess, outline, createdAt = System.currentTimeMillis()))
+                    Repo.addSite(Site(Repo.newId(), name, siteAccess, outline, createdAt = System.currentTimeMillis()))
+                    drawing = null
+                    corners.clear()
+                    savedNote = "$name saved. Finds inside it go there."
                     if (data.recording == null) TrackService.start(ctx)
-                    // This screen becomes the map for the new site, so coming back to it later
-                    // (from a find or the site's page) doesn't reopen "outline a new site".
-                    nav.replace(Screen.Hunt(mapId, mode = mode.name, siteId = id, startVisit = true, notice = "$name saved. Finds inside it go there."))
+                    follow = true
                 }
             },
             modifier = Modifier.align(Alignment.BottomCenter),
-        ) else BottomPanel(
-            mode, settings, follow, pinMode, recordingSince, fix, data.pins,
-            topLabel = slot(Slot.OVERLAY_TOP).label,
-            onLayers = { moreOpen = true },
-            onPin = { pinMode = !pinMode },
+        ) else MapControls(
+            settings, follow, pinMode, recordingSince, fix, data.pins, data.sites,
+            onFind = {
+                val f = LocationHub.fix.value
+                when {
+                    pinMode -> pinMode = false
+                    f != null -> draft = PinDraft(f.geo, "", com.brandonthomas.oldground.data.PinKind.FIND, "", null)
+                    else -> pinMode = true
+                }
+            },
             onOpenPin = { p -> cardPin = p.id },
+            onOpenSite = { s -> nav.go(Screen.Site(s.id)) },
             guided = guideTo?.let { id -> data.pins.firstOrNull { it.id == id } },
             onLocate = {
                 val f = LocationHub.fix.value
@@ -584,7 +644,19 @@ fun HuntScreen(
         )
     }
 
-    // ---- sheets and dialogs ----
+    // ---- sheets and dialogs (not while another tab covers the map) ----
+    if (!visible) return
+    if (modePicking) ChoiceSheet("View", Mode.entries.map { m -> Choice(m.label + "  ·  " + m.hint, m == mode) { mode = m } }) { modePicking = false }
+    if (oldMapPicking) OldMapSheet(
+        maps = data.maps, current = map, here = fix?.geo, overlay = mode == Mode.OVERLAY && slot(Slot.OVERLAY_TOP) == Layer.OLDMAP,
+        opacity = settings.overlayOpacity,
+        onOpacity = { v -> Repo.updateSettings { it.copy(overlayOpacity = v) } },
+        onPick = { id -> oldMapPicking = false; if (id != mapId) onPickOldMap(id) },
+        onLineUp = { id -> oldMapPicking = false; nav.go(Screen.Align(id)) },
+        onAdd = { oldMapPicking = false; nav.go(Screen.OldMapsRoot) },
+        onDismiss = { oldMapPicking = false },
+    )
+    if (searching) SearchSheet(fix?.geo, onPick = { g -> searching = false; flyTo(g, 16.0) }) { searching = false }
     picking?.let { k ->
         val current = slot(k)
         ChoiceSheet(k.title, k.options.filter { it != Layer.OLDMAP || hasOld }.map { l -> Choice(l.label, l == current) { choose(k, l) } }) { picking = null }
@@ -592,6 +664,11 @@ fun HuntScreen(
     if (moreOpen) {
         ModalBottomSheet(onDismissRequest = { moreOpen = false }, containerColor = C.panel) {
             Column(Modifier.padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (mode == Mode.OVERLAY) {
+                    var v by remember { mutableFloatStateOf(settings.overlayOpacity) }
+                    SectionTitle("${slot(Slot.OVERLAY_TOP).label} strength ${(v * 100).roundToInt()}%")
+                    SlimSlider(v, { v = it }, { Repo.updateSettings { it.copy(overlayOpacity = v) } }, Modifier.fillMaxWidth())
+                }
                 SectionTitle("LiDAR look")
                 Segmented(settings.lidarStyle, LidarStyle.entries.map { it to it.label }, { v -> Repo.updateSettings { it.copy(lidarStyle = v) } })
                 if (settings.lidarStyle == LidarStyle.SUN) {
@@ -606,8 +683,6 @@ fun HuntScreen(
                 SectionTitle("Public land")
                 Segmented(settings.publicLand, listOf(true to "Show", false to "Hide"), { v -> Repo.updateSettings { it.copy(publicLand = v) } })
                 Text("Federal, state, county and city land from USGS. Tap an area to see who manages it.", color = C.muted, fontSize = 13.sp)
-                SectionTitle("Units")
-                Segmented(settings.metric, listOf(false to "Feet / miles", true to "Meters / km"), { v -> Repo.updateSettings { it.copy(metric = v) } })
                 Pill("Save this area for offline", {
                     moreOpen = false
                     val main = live["main"]?.takeIf { it.second == null } ?: live.values.firstOrNull { it.second == null }
@@ -761,14 +836,26 @@ private fun MapDataSync(
 }
 
 @Composable
-private fun BottomPanel(
-    mode: Mode, settings: Settings, follow: Boolean, pinMode: Boolean, recordingSince: Long?, fix: Fix?, pins: List<Pin>, topLabel: String,
-    onLayers: () -> Unit, onPin: () -> Unit, onOpenPin: (Pin) -> Unit, onLocate: () -> Unit, modifier: Modifier, guided: Pin? = null,
+private fun MapChip(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, highlight: Boolean = false) {
+    Box(
+        modifier.height(38.dp).card(radius = 999).clickable(onClick = onClick).padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, color = if (highlight) C.accent else C.ink, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
+/**
+ * The few controls the map needs, floating so the map gets the screen: Follow, Record,
+ * + Find, and one slim card for the nearest (or guided) find and the site you're in.
+ */
+@Composable
+private fun MapControls(
+    settings: Settings, follow: Boolean, pinMode: Boolean, recordingSince: Long?, fix: Fix?, pins: List<Pin>, sites: List<Site>,
+    onFind: () -> Unit, onOpenPin: (Pin) -> Unit, onOpenSite: (Site) -> Unit, onLocate: () -> Unit, modifier: Modifier, guided: Pin? = null,
 ) {
     val ctx = LocalContext.current
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { TrackService.start(ctx) }
-    var collapsed by rememberSaveable { mutableStateOf(false) }
-    // Elapsed recording time as a running clock: 2:05, then 1:02:05 past an hour.
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(recordingSince) {
         while (recordingSince != null) {
@@ -776,91 +863,169 @@ private fun BottomPanel(
             kotlinx.coroutines.delay(1_000)
         }
     }
-    val elapsed = recordingSince?.let {
-        val secs = ((now - it) / 1000).coerceAtLeast(0)
-        val h = secs / 3600
-        val m = (secs % 3600) / 60
-        val sec = "%02d".format(secs % 60)
-        if (h > 0) "$h:${"%02d".format(m)}:$sec" else "$m:$sec"
-    }
     val nearest = guided ?: fix?.let { f -> pins.minByOrNull { Mercator.distanceMeters(f.geo, it.geo) } }
-    val shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
-    Column(
-        modifier.fillMaxWidth()
-            .shadow(16.dp, shape, ambientColor = Color(0x5514201D), spotColor = Color(0x5514201D))
-            .clip(shape)
-            .background(C.panel)
-            .navigationBarsPadding()
-            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        // Handle: tap or drag down to shrink the panel to just the buttons.
-        Box(
-            Modifier.fillMaxWidth().height(22.dp)
-                .clickable(onClickLabel = if (collapsed) "Show more" else "Show less") { collapsed = !collapsed }
-                .pointerInput(Unit) {
-                    detectDragGestures { change, drag ->
-                        change.consume()
-                        if (drag.y > 6) collapsed = true else if (drag.y < -6) collapsed = false
+    val here = fix?.let { f -> Sites.siteAt(sites, f.geo) }
+    Column(modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(
+                Modifier.size(46.dp).shadow(5.dp, CircleShape).clip(CircleShape).background(if (follow) C.accent else C.panel)
+                    .clickable(onClickLabel = if (follow) "Stop following" else "Follow me", onClick = onLocate),
+                contentAlignment = Alignment.Center,
+            ) { GlyphIcon(Glyph.FOLLOW, if (follow) Color.White else C.ink, Modifier.size(21.dp)) }
+            Spacer(Modifier.weight(1f))
+            // Record: a red dot to start; while recording, the running clock (tap to stop).
+            Row(
+                Modifier.height(46.dp).shadow(5.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50)).background(C.panel)
+                    .clickable(onClickLabel = if (recordingSince != null) "Stop recording" else "Record track") {
+                        if (recordingSince != null) TrackService.stop(ctx)
+                        else if (Build.VERSION.SDK_INT >= 33 &&
+                            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                        ) askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        else TrackService.start(ctx)
                     }
-                },
-            contentAlignment = Alignment.Center,
-        ) { Box(Modifier.size(width = 40.dp, height = 5.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFFD5DBD9))) }
-
-        if (!collapsed) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (nearest != null && fix != null) {
-                    val d = Mercator.distanceMeters(fix.geo, nearest.geo)
-                    val dir = Mercator.compass(Mercator.bearing(fix.geo, nearest.geo))
-                    val photo = nearest.photos.firstOrNull()
-                    if (photo != null) PhotoThumb(photo, Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).clickable { onOpenPin(nearest) }, px = 160)
-                    else Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(C.soft).clickable { onOpenPin(nearest) }, contentAlignment = Alignment.Center) {
-                        Box(Modifier.size(12.dp).clip(CircleShape).background(hexColor(nearest.kind.color)))
-                    }
-                    Column(Modifier.weight(1f).clickable { onOpenPin(nearest) }) {
-                        Text(nearest.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.ink, maxLines = 1)
-                        val what = if (nearest.kind == com.brandonthomas.oldground.data.PinKind.FIND)
-                            listOfNotNull(nearest.material, nearest.depthIn?.let { depthLabel(it, settings.metric) }).joinToString(" · ").ifEmpty { nearest.kind.label }
-                        else nearest.kind.label
-                        Text(
-                            (if (guided != null) "Guiding · " else "") + "${Mercator.formatDistance(d, settings.metric)} $dir · $what",
-                            fontSize = 13.sp, color = if (guided != null) C.accent else C.muted, maxLines = 1,
-                            fontWeight = if (guided != null) FontWeight.SemiBold else FontWeight.Normal,
-                        )
-                    }
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                if (recordingSince != null) {
+                    Box(Modifier.size(11.dp).clip(RoundedCornerShape(2.dp)).background(C.bad))
+                    Text(clock(now - recordingSince), color = C.badInk, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
                 } else {
-                    Column(Modifier.weight(1f)) {
-                        Text(if (fix == null) "Finding your location…" else "No pins yet", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.ink)
-                        Text("Tap Pin to mark a home site, a find or a LiDAR feature.", fontSize = 13.sp, color = C.muted, maxLines = 2)
-                    }
-                }
-                fix?.accuracy?.let {
-                    Text(
-                        "GPS ±${Mercator.formatDistance(it.toDouble(), settings.metric)}",
-                        Modifier.clip(RoundedCornerShape(50)).background(C.accentSoft).padding(horizontal = 10.dp, vertical = 5.dp),
-                        color = C.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                    )
+                    Box(Modifier.size(11.dp).clip(CircleShape).background(C.bad))
+                    Text("Record", color = C.ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
-            if (mode == Mode.OVERLAY) {
-                var v by remember { mutableFloatStateOf(settings.overlayOpacity) }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("$topLabel ${(v * 100).roundToInt()}%", Modifier.width(118.dp), color = C.ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                    SlimSlider(v, { v = it }, { Repo.updateSettings { it.copy(overlayOpacity = v) } }, Modifier.weight(1f))
+            Row(
+                Modifier.height(46.dp).shadow(5.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50)).background(if (pinMode) C.panel else C.accent)
+                    .clickable(onClickLabel = if (pinMode) "Cancel" else "Log a find", onClick = onFind).padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (!pinMode) GlyphIcon(Glyph.PLUS, Color.White, Modifier.size(16.dp))
+                Text(if (pinMode) "Cancel" else "Find", color = if (pinMode) C.ink else Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            }
+        }
+        // The slim card: nearest (or guided) find, the site you're in, GPS accuracy.
+        Row(
+            Modifier.fillMaxWidth().height(58.dp).card(radius = 16, elevation = 5)
+                .then(if (nearest != null) Modifier.clickable { onOpenPin(nearest) } else Modifier)
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            val photo = nearest?.photos?.firstOrNull()
+            when {
+                photo != null -> PhotoThumb(photo, Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)), px = 140)
+                nearest != null -> Box(Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(C.soft), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(11.dp).clip(CircleShape).background(hexColor(nearest.kind.color)))
+                }
+            }
+            Column(Modifier.weight(1f)) {
+                val top = when {
+                    fix == null -> "Finding your location…"
+                    nearest == null -> "No finds yet. Tap + Find when you dig one."
+                    else -> {
+                        val d = Mercator.formatDistance(Mercator.distanceMeters(fix.geo, nearest.geo), settings.metric)
+                        val dir = Mercator.compass(Mercator.bearing(fix.geo, nearest.geo))
+                        "${nearest.name} · $d $dir"
+                    }
+                }
+                Text(
+                    (if (guided != null) "Guiding to " else "") + top,
+                    fontWeight = FontWeight.Bold, fontSize = 14.sp, color = if (guided != null) C.accent else C.ink, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+                Row {
+                    if (here != null) Text(
+                        "In ${here.name} ›", Modifier.clickable { onOpenSite(here) },
+                        color = C.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                    )
+                    val acc = fix?.accuracy?.let { "GPS ±${Mercator.formatDistance(it.toDouble(), settings.metric)}" }
+                    if (acc != null) Text((if (here != null) "  ·  " else "") + acc, color = C.muted, fontSize = 12.sp, maxLines = 1)
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ToolButton("Layers", Glyph.LAYERS, onLayers, Modifier.weight(1f))
-            ToolButton(if (pinMode) "Cancel" else "Pin", Glyph.PIN, onPin, Modifier.weight(1f), kind = if (pinMode) "primary" else "soft")
-            ToolButton(elapsed ?: "Record", if (elapsed != null) Glyph.STOP else Glyph.RECORD, {
-                if (recordingSince != null) TrackService.stop(ctx)
-                else if (Build.VERSION.SDK_INT >= 33 &&
-                    ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                ) askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
-                else TrackService.start(ctx)
-            }, Modifier.weight(1f), kind = "danger")
-            ToolButton(if (follow) "Following" else "Follow", Glyph.FOLLOW, onLocate, Modifier.weight(1f), kind = if (follow) "primary" else "soft")
+    }
+}
+
+/** Which old map lies on top: the ones that cover you first, then the rest. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OldMapSheet(
+    maps: List<com.brandonthomas.oldground.data.OldMap>, current: com.brandonthomas.oldground.data.OldMap?, here: LngLat?,
+    overlay: Boolean, opacity: Float, onOpacity: (Float) -> Unit,
+    onPick: (String?) -> Unit, onLineUp: (String) -> Unit, onAdd: () -> Unit, onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = C.panel, shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)) {
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("Old map on top", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = C.ink, modifier = Modifier.padding(start = 4.dp))
+            if (overlay && current != null) {
+                var v by remember { mutableFloatStateOf(opacity) }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
+                    Text("Strength ${(v * 100).roundToInt()}%", Modifier.width(118.dp), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = C.ink)
+                    SlimSlider(v, { v = it }, { onOpacity(v) }, Modifier.weight(1f))
+                }
+            }
+            fun center(m: com.brandonthomas.oldground.data.OldMap) = m.anchors.takeIf { it.isNotEmpty() }?.let { a -> LngLat(a.map { it.lng }.average(), a.map { it.lat }.average()) }
+            val sorted = maps.sortedWith(compareBy<com.brandonthomas.oldground.data.OldMap> { !it.aligned }.thenBy { m ->
+                val c = center(m); if (here != null && c != null) Mercator.distanceMeters(here, c) else Double.MAX_VALUE
+            })
+            for (m in sorted) {
+                val on = m.id == current?.id
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(if (on) C.accentSoft else Color.Transparent)
+                        .clickable { if (m.aligned) onPick(m.id) else onLineUp(m.id) }.padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    MapThumb(m, Modifier.size(50.dp).clip(RoundedCornerShape(10.dp)))
+                    Column(Modifier.weight(1f)) {
+                        Text(m.name, fontWeight = if (on) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 15.sp, color = if (on) C.accent else C.ink, maxLines = 1)
+                        val c = center(m)
+                        val where = if (here != null && c != null) {
+                            val d = Mercator.distanceMeters(here, c)
+                            if (d < 1500) "Near you" else "${Mercator.formatDistance(d, false)} away"
+                        } else null
+                        Text(
+                            if (!m.aligned) "Not lined up yet · tap to add anchors" else listOfNotNull(where, "${m.anchors.size} anchors").joinToString(" · "),
+                            fontSize = 12.5.sp, color = if (m.aligned) C.muted else C.check,
+                        )
+                    }
+                    if (on) Text("✓", color = C.accent, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+                }
+            }
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(if (current == null) C.accentSoft else Color.Transparent)
+                    .clickable { onPick(null) }.padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(Modifier.size(50.dp).clip(RoundedCornerShape(10.dp)).background(C.soft), contentAlignment = Alignment.Center) { GlyphIcon(Glyph.LAYERS, C.muted) }
+                Column(Modifier.weight(1f)) {
+                    Text("No old map", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = if (current == null) C.accent else C.ink)
+                    Text("Just LiDAR, satellite, topo and public land", fontSize = 12.5.sp, color = C.muted)
+                }
+                if (current == null) Text("✓", color = C.accent, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+            }
+            Pill("+ Add an old map", onAdd, Modifier.fillMaxWidth(), kind = "soft")
+        }
+    }
+}
+
+/** Find a town, road or place (or type coordinates) and fly there. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchSheet(near: LngLat?, onPick: (LngLat) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss, containerColor = C.panel, shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).navigationBarsPadding().imePadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Go to a place", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = C.ink, modifier = Modifier.padding(start = 4.dp))
+            PlaceSearch(near, onPick, Modifier.fillMaxWidth())
         }
     }
 }
@@ -878,7 +1043,7 @@ private fun DrawPanel(
     Column(
         modifier.fillMaxWidth()
             .shadow(16.dp, shape, ambientColor = Color(0x5514201D), spotColor = Color(0x5514201D))
-            .clip(shape).background(C.panel).navigationBarsPadding().imePadding()
+            .clip(shape).background(C.panel).imePadding()
             .padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

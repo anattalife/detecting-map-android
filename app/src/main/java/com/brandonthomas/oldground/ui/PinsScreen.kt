@@ -52,9 +52,41 @@ import java.text.DateFormat
 import java.time.Instant
 import java.util.Date
 
-/** Pins that aren't finds (home sites, LiDAR features, permissions), recorded tracks, and GPX export. */
+/** Every pin and track as a GPX file, handed to the share sheet. Returns a problem to show, or null. */
+fun exportGpx(ctx: android.content.Context): Pair<String, String>? {
+    val data = Repo.current
+    val trackPts = Repo.trackPoints.value
+    val metric = data.settings.metric
+    if (data.pins.isEmpty() && data.tracks.isEmpty()) return "Nothing to export" to "Log a find, drop a pin or record a track first."
+    val gpx = Gpx.build(
+        data.pins.map {
+            val site = if (it.kind == PinKind.FIND) com.brandonthomas.oldground.data.Sites.siteAt(data.sites, it.geo)?.name else null
+            val details = if (it.kind == PinKind.FIND) listOfNotNull(site, findSummary(it, metric)).joinToString(" · ") + (it.rating.takeIf { r -> r > 0 }?.let { r -> " · $r/5" } ?: "") + (it.detector?.let { d -> " · $d" } ?: "") else it.kind.label
+            Gpx.Waypoint(it.name, it.geo, listOf(details, it.note).filter { s -> s.isNotBlank() }.joinToString(" — "), Instant.ofEpochMilli(it.createdAt).toString())
+        },
+        data.tracks.mapNotNull { t ->
+            val pts = trackPts[t.id].orEmpty()
+            if (pts.size < 2) null else Gpx.Track(t.name, pts.map { Gpx.TrackPoint(com.brandonthomas.oldground.geo.LngLat(it.lng, it.lat), it.timeMs) })
+        },
+    )
+    val dir = File(ctx.cacheDir, "export").apply { mkdirs() }
+    val file = File(dir, "oldground.gpx")
+    file.writeText(gpx)
+    val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", file)
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "application/gpx+xml"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        putExtra(Intent.EXTRA_SUBJECT, "OldGround pins and tracks")
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    return runCatching { ctx.startActivity(Intent.createChooser(send, "Export GPX")) }.exceptionOrNull()?.let {
+        "Couldn't share" to "No app on this device can receive the GPX file."
+    }
+}
+
+/** Pins that aren't finds (old houses, LiDAR features, permissions) when [tracks] is false; recorded tracks when true. */
 @Composable
-fun PinsTracksTab(nav: Nav) {
+fun PinsTracksTab(nav: Nav, tracks: Boolean = false) {
     val ctx = LocalContext.current
     val data by Repo.data.collectAsState()
     val trackPts by Repo.trackPoints.collectAsState()
@@ -70,45 +102,10 @@ fun PinsTracksTab(nav: Nav) {
         .filter { it.kind != PinKind.FIND && (filter == null || it.kind == filter) }
         .sortedWith(compareBy<Pin> { p -> here?.let { Mercator.distanceMeters(it, p.geo) } ?: 0.0 }.thenByDescending { it.createdAt })
 
-    fun exportGpx() {
-        if (data.pins.isEmpty() && data.tracks.isEmpty()) {
-            message = "Nothing to export" to "Drop a pin or record a track first."
-            return
-        }
-        val gpx = Gpx.build(
-            data.pins.map {
-                val site = if (it.kind == PinKind.FIND) com.brandonthomas.oldground.data.Sites.siteAt(data.sites, it.geo)?.name else null
-                val details = if (it.kind == PinKind.FIND) listOfNotNull(site, findSummary(it, metric)).joinToString(" · ") + (it.rating.takeIf { r -> r > 0 }?.let { r -> " · $r/5" } ?: "") + (it.detector?.let { d -> " · $d" } ?: "") else it.kind.label
-                Gpx.Waypoint(it.name, it.geo, listOf(details, it.note).filter { s -> s.isNotBlank() }.joinToString(" — "), Instant.ofEpochMilli(it.createdAt).toString())
-            },
-            data.tracks.mapNotNull { t ->
-                val pts = trackPts[t.id].orEmpty()
-                if (pts.size < 2) null else Gpx.Track(t.name, pts.map { Gpx.TrackPoint(com.brandonthomas.oldground.geo.LngLat(it.lng, it.lat), it.timeMs) })
-            },
-        )
-        val dir = File(ctx.cacheDir, "export").apply { mkdirs() }
-        val file = File(dir, "oldground.gpx")
-        file.writeText(gpx)
-        val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", file)
-        val send = Intent(Intent.ACTION_SEND).apply {
-            type = "application/gpx+xml"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "OldGround pins and tracks")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        runCatching { ctx.startActivity(Intent.createChooser(send, "Export GPX")) }
-            .onFailure { message = "Couldn't share" to "No app on this device can receive the GPX file." }
-    }
-
     Column(Modifier.fillMaxSize()) {
         ScrollColumn(Modifier.padding(horizontal = 16.dp)) {
             Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Pill("Export GPX", { exportGpx() }, kind = "tint", small = true)
-                Spacer(Modifier.weight(1f))
-                Segmented(metric, listOf(false to "ft / mi", true to "m / km"), { v -> Repo.updateSettings { it.copy(metric = v) } }, Modifier.width(160.dp))
-            }
-            Spacer(Modifier.height(8.dp))
+            if (!tracks) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FilterChip("All", null, filter == null) { filter = null }
                 for (k in PinKind.entries.filter { it != PinKind.FIND }) {
@@ -123,7 +120,7 @@ fun PinsTracksTab(nav: Nav) {
             }
             if (pins.isEmpty()) {
                 Text(
-                    "No pins here. Finds live under Sites and All finds; home sites, LiDAR features and permissions you pin show here.",
+                    "No pins yet. Old houses, LiDAR features and permissions you pin on the map show here.",
                     color = C.muted, modifier = Modifier.padding(vertical = 16.dp),
                 )
             }
@@ -159,9 +156,7 @@ fun PinsTracksTab(nav: Nav) {
                 Spacer(Modifier.height(6.dp))
             }
 
-            Spacer(Modifier.height(16.dp))
-            SectionTitle("Tracks (${data.tracks.size})")
-            Spacer(Modifier.height(8.dp))
+            } else {
             if (data.tracks.isEmpty()) {
                 Text("No tracks yet. Tap Record on the map; it keeps recording with the screen off.", color = C.muted, modifier = Modifier.padding(vertical = 8.dp))
             }
@@ -185,7 +180,8 @@ fun PinsTracksTab(nav: Nav) {
                 }
                 Spacer(Modifier.height(6.dp))
             }
-            Spacer(Modifier.height(24.dp))
+            }
+            Spacer(Modifier.height(80.dp))
         }
     }
 

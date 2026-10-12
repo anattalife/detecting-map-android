@@ -62,8 +62,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+/** Old maps tab: your scans of plat maps and atlases. Open one to put it on top of the Map tab. */
 @Composable
-fun HomeScreen(nav: Nav) {
+fun OldMapsScreen(nav: Nav) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val data by Repo.data.collectAsState()
@@ -75,10 +76,6 @@ fun HomeScreen(nav: Nav) {
     var deleting by remember { mutableStateOf<OldMap?>(null) }
     var message by remember { mutableStateOf<Pair<String, String>?>(null) }
     var preparing by remember { mutableStateOf<String?>(null) }
-    var areas by remember { mutableStateOf<List<OfflineAreas.Area>>(emptyList()) }
-    var areasTick by remember { mutableStateOf(0) }
-
-    LaunchedEffect(areasTick) { OfflineAreas.list(ctx) { areas = it } }
 
     val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) pending = uri to "Old map"
@@ -134,58 +131,14 @@ fun HomeScreen(nav: Nav) {
     }
 
     var addOpen by remember { mutableStateOf(false) }
-    // The map you're most likely to hunt next: the newest one that's lined up.
-    val hero = data.maps.firstOrNull { it.aligned }
-    val greeting = when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) {
-        in 4..11 -> "Good morning"
-        in 12..16 -> "Good afternoon"
-        else -> "Good evening"
-    }
 
-    Column(Modifier.fillMaxSize().background(C.bg).statusBarsPadding().navigationBarsPadding()) {
-        ScrollColumn(Modifier.padding(horizontal = 18.dp)) {
-            Spacer(Modifier.height(16.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(greeting, fontSize = 14.sp, color = C.muted, fontWeight = FontWeight.Medium)
-                    Text("OldGround", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = C.ink, letterSpacing = (-0.5).sp)
-                }
-                RoundButton({ nav.go(Screen.Sites()) }, "Sites, finds and tracks") { GlyphIcon(Glyph.PIN, C.ink) }
-            }
-            Spacer(Modifier.height(16.dp))
-
-            // ---- hero: jump straight into a hunt ----
-            Column(Modifier.fillMaxWidth().card(radius = 22, elevation = 6)) {
-                Box(Modifier.fillMaxWidth().height(170.dp).background(C.soft)) {
-                    if (hero != null) MapThumb(hero, Modifier.fillMaxSize())
-                    else Box(Modifier.fillMaxSize().background(C.accentSoft))
-                    Text(
-                        if (hero != null) "Ready to explore" else "No old map needed",
-                        Modifier.padding(12.dp).clip(RoundedCornerShape(50)).background(Color(0xEBFFFFFF)).padding(horizontal = 10.dp, vertical = 5.dp),
-                        color = C.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                    )
-                }
-                Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(hero?.name ?: "LiDAR, satellite and topo", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = C.ink, maxLines = 1)
-                        val pins = hero?.let { h -> data.pins.count { it.mapId == h.id } }
-                        Text(
-                            if (hero != null) "${hero.anchors.size} anchors · $pins pin${if (pins == 1) "" else "s"}" else "Explore today's maps around you",
-                            fontSize = 13.sp, color = C.muted,
-                        )
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Pill("Explore", { nav.go(Screen.Hunt(hero?.id)) }, kind = "primary")
-                }
-            }
-
-            // ---- old maps ----
-            Spacer(Modifier.height(22.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Old maps", Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = C.ink)
-                Pill("+ Add map", { addOpen = true }, kind = "tint")
-            }
-            Spacer(Modifier.height(10.dp))
+    Column(Modifier.fillMaxSize().background(C.bg)) {
+        TabHeader("Old maps", nav) { Pill("+ Add map", { addOpen = true }, kind = "primary", small = true) }
+        ScrollColumn(Modifier.padding(horizontal = 16.dp)) {
+            Text(
+                "Scans of plat maps, atlases and county maps. Line one up once, then open it on the map.",
+                color = C.muted, fontSize = 13.5.sp, lineHeight = 19.sp, modifier = Modifier.padding(bottom = 12.dp),
+            )
             if (data.maps.isEmpty()) {
                 Column(Modifier.fillMaxWidth().card().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Add your first old map", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = C.ink)
@@ -202,47 +155,12 @@ fun HomeScreen(nav: Nav) {
                 MapRow(
                     m,
                     building = progress["scan:${m.id}"] ?: progress["warp:${m.id}"],
-                    onOpen = { nav.go(if (m.aligned) Screen.Hunt(m.id) else Screen.Align(m.id)) },
+                    onOpen = { nav.go(if (m.aligned) Screen.Hunt(m.id, keepOldMap = false) else Screen.Align(m.id)) },
                     onMenu = { menuFor = m },
                 )
                 Spacer(Modifier.height(10.dp))
             }
-
-            // Hunting with today's maps only.
-            Row(
-                Modifier.fillMaxWidth().card().clickable { nav.go(Screen.Hunt(null)) }.padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Box(Modifier.size(58.dp).clip(RoundedCornerShape(12.dp)).background(C.accentSoft), contentAlignment = Alignment.Center) {
-                    GlyphIcon(Glyph.LAYERS, C.accent, Modifier.size(26.dp))
-                }
-                Column(Modifier.weight(1f)) {
-                    Text("Today's maps only", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.ink)
-                    Text("LiDAR, satellite, topo and public land", color = C.muted, fontSize = 13.sp, maxLines = 1)
-                }
-                GlyphIcon(Glyph.CHEVRON, C.faint, Modifier.size(20.dp))
-            }
-
-            // ---- at a glance ----
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatCard("Offline areas", "${areas.size}", Modifier.weight(1f))
-                StatCard("Sites", "${data.sites.size}", Modifier.weight(1f), onClick = { nav.go(Screen.Sites()) })
-            }
-            if (areas.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                Column(Modifier.fillMaxWidth().card()) {
-                    areas.forEachIndexed { i, a ->
-                        if (i > 0) Divider()
-                        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(a.name, Modifier.weight(1f), color = C.ink, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-                            Pill("Delete", { OfflineAreas.delete(ctx, a.name) { areasTick++ } }, kind = "soft")
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(80.dp))
         }
     }
 
@@ -262,7 +180,7 @@ fun HomeScreen(nav: Nav) {
     }
     menuFor?.let { m ->
         ChoiceSheet(m.name, listOf(
-            Choice("Align anchors") { nav.go(Screen.Align(m.id)) },
+            Choice("Line up (anchors)") { nav.go(Screen.Align(m.id)) },
             Choice("Rename") { renaming = m },
             Choice("Delete", danger = true) { deleting = m },
         )) { menuFor = null }
@@ -303,14 +221,6 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(text, modifier, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = C.ink)
 }
 
-@Composable
-private fun StatCard(label: String, value: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
-    Column(modifier.card().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(14.dp)) {
-        Text(label, fontSize = 13.sp, color = C.muted)
-        Text(value, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = C.ink)
-    }
-}
-
 /** A small picture of an old map's scan. */
 @Composable
 fun MapThumb(m: OldMap, modifier: Modifier = Modifier) {
@@ -341,11 +251,12 @@ private fun MapRow(m: OldMap, building: Float?, onOpen: () -> Unit, onMenu: () -
             Text(m.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.ink, maxLines = 1)
             val (label, color) = when {
                 building != null -> "Preparing ${(building * 100).toInt()}%" to C.muted
-                m.aligned -> "Aligned · ${m.anchors.size} anchors" to C.muted
+                m.aligned -> "Lined up · ${m.anchors.size} anchors" to C.muted
                 else -> "Add anchors to line it up" to C.check
             }
             Text(label, color = color, fontSize = 13.sp, fontWeight = if (m.aligned || building != null) FontWeight.Normal else FontWeight.SemiBold)
         }
+        if (building == null) Pill(if (m.aligned) "Open" else "Line up", onOpen, kind = if (m.aligned) "primary" else "soft", small = true)
         Box(
             Modifier.size(40.dp).clip(CircleShape).clickable(onClickLabel = "Map options", onClick = onMenu),
             contentAlignment = Alignment.Center,

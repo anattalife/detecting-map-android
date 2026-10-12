@@ -51,7 +51,7 @@ data class OldMap(
 }
 
 enum class PinKind(val label: String, val color: String) {
-    HOMESITE("Home site", "#C0392B"),
+    HOMESITE("Old house", "#C0392B"),
     FIND("Find", "#D4A017"),
     LIDAR("LiDAR feature", "#7D3C98"),
     PERMISSION("Permission", "#1E8449"),
@@ -142,6 +142,10 @@ data class Settings(
     val publicLand: Boolean = true,
     /** Background of the lower map in the anchor editor. */
     val alignBase: Layer = Layer.STREETS,
+    /** The old map last shown on the Map tab, reopened next time. */
+    val lastOldMap: String? = null,
+    /** Keep the screen on while the Map tab is showing. */
+    val keepScreenOn: Boolean = true,
     /** Remembered layer choices (never OLDMAP, which depends on the map that's open). */
     val slots: Map<Slot, Layer> = emptyMap(),
 )

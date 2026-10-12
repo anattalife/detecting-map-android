@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -42,6 +43,7 @@ import com.brandonthomas.oldground.Screen
 import com.brandonthomas.oldground.data.AppData
 import com.brandonthomas.oldground.data.FIND_MATERIALS
 import com.brandonthomas.oldground.data.Pin
+import com.brandonthomas.oldground.data.PinKind
 import com.brandonthomas.oldground.data.Repo
 import com.brandonthomas.oldground.data.Site
 import com.brandonthomas.oldground.data.Sites
@@ -51,35 +53,59 @@ import com.brandonthomas.oldground.location.Fix
 import com.brandonthomas.oldground.location.LocationHub
 import java.time.format.DateTimeFormatter
 
-/** Open a pin on the map (on its old map when that's aligned), with its card showing. */
-fun openPin(nav: Nav, p: Pin) = nav.go(Screen.Hunt(p.mapId?.takeIf { id -> Repo.map(id)?.aligned == true }, p.id))
+/** Show a pin on the Map tab with its card open (the old map on top stays as it is). */
+fun openPin(nav: Nav, p: Pin) = nav.go(Screen.Hunt(null, p.id))
 
-/** Sites you detect (each holding its finds and visits), every find, and other pins and tracks. */
+/** The top of a tab's first page: its title, the settings gear, and one main action. */
 @Composable
-fun SitesScreen(nav: Nav, startTab: Int = 0) {
+fun TabHeader(title: String, nav: Nav, action: @Composable () -> Unit = {}) {
+    Row(
+        Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(title, Modifier.weight(1f), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = C.ink)
+        RoundButton({ nav.go(Screen.Settings) }, "Settings", size = 38.dp) { GlyphIcon(Glyph.GEAR, C.ink, Modifier.size(20.dp)) }
+        action()
+    }
+}
+
+/** Sites tab: every place you detect, each holding its finds and visits. */
+@Composable
+fun SitesRoot(nav: Nav) {
     val data by Repo.data.collectAsState()
     val trackPts by Repo.trackPoints.collectAsState()
     val fix by LocationHub.fix.collectAsState()
-    var tab by rememberSaveable { mutableIntStateOf(startTab) }
+    val bySite = remember(data.sites, data.pins) { Sites.findsBySite(data.sites, data.pins) }
+    Column(Modifier.fillMaxSize().background(C.bg)) {
+        TabHeader("Sites", nav) { Pill("+ New site", { nav.go(Screen.Hunt(null, draw = "new")) }, kind = "primary", small = true) }
+        SitesTab(nav, data, bySite, trackPts, fix)
+    }
+}
+
+/** Finds tab: every find by site, plus other pins and recorded tracks. */
+@Composable
+fun FindsRoot(nav: Nav, startSub: Int = 0) {
+    val ctx = LocalContext.current
+    val data by Repo.data.collectAsState()
+    var sub by rememberSaveable { mutableIntStateOf(startSub) }
+    var message by remember { mutableStateOf<Pair<String, String>?>(null) }
     val bySite = remember(data.sites, data.pins) { Sites.findsBySite(data.sites, data.pins) }
     val findCount = bySite.values.sumOf { it.size }
-
-    Column(Modifier.fillMaxSize().background(C.bg).statusBarsPadding().navigationBarsPadding()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            RoundButton({ nav.back() }, "Back") { GlyphIcon(Glyph.BACK, C.ink) }
-            Text("Sites", Modifier.weight(1f).padding(horizontal = 12.dp), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = C.ink)
-            Pill("+  New site", { nav.go(Screen.Hunt(null, draw = "new")) }, kind = "primary")
-        }
+    val otherCount = data.pins.count { it.kind != PinKind.FIND }
+    Column(Modifier.fillMaxSize().background(C.bg)) {
+        TabHeader("Finds", nav) { Pill("Export", { message = exportGpx(ctx) }, kind = "tint", small = true) }
         Segmented(
-            tab, listOf(0 to "Sites ${data.sites.size}", 1 to "All finds $findCount", 2 to "Pins & tracks"), { tab = it },
-            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            sub, listOf(0 to "Finds $findCount", 1 to "Other pins $otherCount", 2 to "Tracks ${data.tracks.size}"), { sub = it },
+            Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
         )
-        when (tab) {
-            0 -> SitesTab(nav, data, bySite, trackPts, fix)
-            1 -> AllFindsTab(nav, data, bySite)
-            else -> PinsTracksTab(nav)
+        when (sub) {
+            0 -> AllFindsTab(nav, data, bySite)
+            1 -> PinsTracksTab(nav, tracks = false)
+            else -> PinsTracksTab(nav, tracks = true)
         }
     }
+    message?.let { (t, b) -> MessageDialog(t, b) { message = null } }
 }
 
 @Composable
@@ -105,7 +131,7 @@ private fun SitesTab(nav: Nav, data: AppData, bySite: Map<String?, List<Pin>>, t
         val loose = bySite[null].orEmpty()
         if (loose.isNotEmpty()) {
             Row(
-                Modifier.fillMaxWidth().card(18).clickable { nav.go(Screen.Sites(1)) }.padding(12.dp),
+                Modifier.fillMaxWidth().card(18).clickable { nav.go(Screen.FindsRoot(0)) }.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Box(Modifier.size(54.dp).clip(RoundedCornerShape(12.dp)).background(C.soft), contentAlignment = Alignment.Center) {
@@ -118,7 +144,7 @@ private fun SitesTab(nav: Nav, data: AppData, bySite: Map<String?, List<Pin>>, t
                 GlyphIcon(Glyph.CHEVRON, C.faint, Modifier.size(18.dp))
             }
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(80.dp))
     }
 }
 
@@ -225,7 +251,7 @@ private fun AllFindsTab(nav: Nav, data: AppData, bySite: Map<String?, List<Pin>>
             Spacer(Modifier.height(10.dp))
         }
         if (all.isNotEmpty() && shown == 0) Text("No finds match.", color = C.muted, modifier = Modifier.padding(vertical = 16.dp))
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(80.dp))
     }
 }
 
