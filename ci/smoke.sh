@@ -44,6 +44,7 @@ shot DRIVE --es openMap ci1 --es mode DRIVE
 shot MAPONLY --es openMap none --es mode OVERLAY
 shot LAYERS --es openMap ci1 --es mode SWIPE --es debug more
 shot PINEDIT --es openMap ci1 --es mode SWIPE --es pin p1 --es debug pin
+shot DRIVEGEO --es openMap none --es mode DRIVE
 shot ANCHORS --es screen align --es openMap ci1
 shot PINS --es screen pins
 adb shell "run-as $P cat files/last-crash.txt" > $OUT/last-crash.txt 2>/dev/null || true
