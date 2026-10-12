@@ -49,7 +49,9 @@ shot PINEDIT --es openMap ci1 --es mode SWIPE --es pin p1 --es debug pin
 shot FINDEDIT --es openMap none --es mode OVERLAY --es pin p2 --es debug pin
 shot FINDNEW --es openMap none --es mode OVERLAY --es pin p5 --es debug new
 shot FINDCARD --es openMap none --es mode OVERLAY --es pin p2 --es debug card
-shot FINDMAP --es openMap none --es mode DRIVE --es pin p6 --es debug none
+shot FINDMAP --es openMap none --es mode OVERLAY --es pin p6 --es debug none
+shot DRIVEGEO --es openMap none --es mode DRIVE --es pin p6 --es debug none
+shot DRIVEGEO2 --es openMap none --es mode DRIVE
 shot FINDOLD --es openMap ci1 --es mode OVERLAY --es pin p6 --es debug none
 shot ANCHORS --es screen align --es openMap ci1
 shot PINS --es screen pins
