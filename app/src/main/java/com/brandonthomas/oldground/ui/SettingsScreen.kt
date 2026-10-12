@@ -51,6 +51,7 @@ fun SettingsScreen(nav: Nav) {
     var areas by remember { mutableStateOf<List<OfflineAreas.Area>>(emptyList()) }
     var areasTick by remember { mutableIntStateOf(0) }
     var editDetector by remember { mutableStateOf(false) }
+    var editName by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Pair<String, String>?>(null) }
     var deleting by remember { mutableStateOf<OfflineAreas.Area?>(null) }
     var deletingAccount by remember { mutableStateOf(false) }
@@ -75,6 +76,10 @@ fun SettingsScreen(nav: Nav) {
             Group("In the field") {
                 Item("Units") {
                     Segmented(s.metric, listOf(false to "Feet", true to "Meters"), { v -> Repo.updateSettings { it.copy(metric = v) } }, Modifier.width(170.dp))
+                }
+                Line()
+                Item("Your name", s.myName.ifBlank { "For permission slips" }, onClick = { editName = true }) {
+                    Text("Change", color = C.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 Line()
                 Item("Detector", s.lastDetector.ifBlank { "Filled in on each new find" }, onClick = { editDetector = true }) {
@@ -131,6 +136,10 @@ fun SettingsScreen(nav: Nav) {
         }
     }
 
+    if (editName) NameDialog("Your name", s.myName, "As it should appear on permission slips", onCancel = { editName = false }) { v ->
+        Repo.updateSettings { it.copy(myName = v.trim()) }
+        editName = false
+    }
     if (editDetector) NameDialog("Your detector", s.lastDetector, "e.g. XP Deus II · Program 4 · Sens 92", onCancel = { editDetector = false }) { v ->
         Repo.updateSettings { it.copy(lastDetector = v.trim()) }
         editDetector = false

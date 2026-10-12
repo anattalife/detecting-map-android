@@ -191,6 +191,9 @@ fun HuntScreen(
     var siteName by remember { mutableStateOf("") }
     var siteAccess by remember { mutableStateOf(SITE_ACCESS.first()) }
     var savedNote by remember { mutableStateOf<String?>(null) }
+    /** A site just saved while standing in it: (id, name), offering Start visit. */
+    var offerVisit by remember { mutableStateOf<Pair<String, String>?>(null) }
+    LaunchedEffect(offerVisit) { if (offerVisit != null) { kotlinx.coroutines.delay(10000); offerVisit = null } }
     var modePicking by remember { mutableStateOf(false) }
     var oldMapPicking by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
@@ -597,6 +600,26 @@ fun HuntScreen(
             if (building != null) Toast("Preparing old map… ${(building * 100).toInt()}%")
             download?.let { Toast("Saving area offline… $it%") }
             savedNote?.let { Toast(it, color = C.accent) }
+            offerVisit?.let { (id, name) ->
+                Row(
+                    Modifier.shadow(4.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50)).background(C.ink).padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("$name saved", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(
+                        "Start visit",
+                        Modifier.clip(RoundedCornerShape(50)).background(C.accent).clickable {
+                            offerVisit = null
+                            com.brandonthomas.oldground.location.VisitControl.start(ctx, id)
+                            follow = true
+                        }.padding(horizontal = 12.dp, vertical = 6.dp),
+                        color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp,
+                    )
+                    Box(Modifier.size(28.dp).clip(CircleShape).clickable { offerVisit = null }, contentAlignment = Alignment.Center) {
+                        GlyphIcon(Glyph.CLOSE, Color.White, Modifier.size(14.dp))
+                    }
+                }
+            }
             if (pinMode) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Toast("Tap the spot on the map", color = C.accent)
                 Pill("My spot", {
@@ -627,9 +650,10 @@ fun HuntScreen(
                     Repo.addSite(Site(id, name, siteAccess, outline, createdAt = System.currentTimeMillis()))
                     drawing = null
                     corners.clear()
-                    savedNote = "$name saved. Your visit has started."
-                    com.brandonthomas.oldground.location.VisitControl.start(ctx, id)
-                    follow = true
+                    // Saving only saves: a site is often planned at home. If you're standing in it,
+                    // starting a visit is offered, never automatic.
+                    val inside = LocationHub.fix.value?.let { f -> Sites.contains(outline.map { LngLat(it[0], it[1]) }, f.geo) } == true
+                    if (inside && Repo.activeVisit == null) offerVisit = id to name else savedNote = "$name saved
                 }
             },
             modifier = Modifier.align(Alignment.BottomCenter),

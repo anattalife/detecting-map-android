@@ -184,6 +184,11 @@ private fun SiteCard(site: Site, finds: List<Pin>, visitCount: Int, lastVisit: S
                     if (site.photo == null) "$sub · ${finds.size} finds" else sub,
                     fontSize = 13.sp, color = C.muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
+                val ps = com.brandonthomas.oldground.data.Permissions.status(site)
+                if (ps.level == com.brandonthomas.oldground.data.Permissions.Level.SOON || ps.level == com.brandonthomas.oldground.data.Permissions.Level.EXPIRED) Text(
+                    "Permission: ${ps.text.replaceFirstChar { it.lowercase() }}",
+                    fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = if (ps.level == com.brandonthomas.oldground.data.Permissions.Level.EXPIRED) C.badInk else Color(0xFFB45309), maxLines = 1,
+                )
             }
             if (inside) {
                 Text("You're here", Modifier.clip(RoundedCornerShape(50)).background(C.accentSoft).padding(horizontal = 10.dp, vertical = 5.dp), color = C.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)

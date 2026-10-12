@@ -98,9 +98,47 @@ data class Site(
     val photo: String? = null,
     val createdAt: Long,
     val note: String = "",
+    /** The landowner's signed permission, if there is one. */
+    val permission: Permission? = null,
+    /** Calls, texts and visits with the landowner, newest last. */
+    val contacts: List<ContactNote> = emptyList(),
 ) {
     val ring get() = outline.map { LngLat(it[0], it[1]) }
 }
+
+/** A permission slip signed on the phone. Stays on the phone; never uploaded. */
+@Serializable
+data class Permission(
+    val ownerName: String,
+    val ownerPhone: String = "",
+    val ownerEmail: String = "",
+    val hunterName: String,
+    val startsAt: Long,
+    /** Null: until the owner withdraws it. */
+    val expiresAt: Long? = null,
+    val conditions: List<String> = emptyList(),
+    val extra: String = "",
+    val signedAt: Long,
+    /** Signature image and the slip as a PDF, in the permissions folder. */
+    val signature: String,
+    val pdf: String,
+)
+
+@Serializable
+data class ContactNote(val at: Long, val how: String, val note: String = "")
+
+/** Conditions offered on a permission slip; the first two start ticked. */
+val PERMISSION_CONDITIONS = listOf(
+    "Fill every hole and leave the ground as I found it.",
+    "Call or text before each visit.",
+    "Not during hunting season.",
+    "Stay out of the yard, garden and planted fields.",
+    "Show the owner everything I find.",
+    "The owner may keep any find they want.",
+    "I accept the risks of being on the property and won't hold the owner responsible for injuries.",
+)
+
+val CONTACT_KINDS = listOf("Call", "Text", "In person", "Email", "Other")
 
 /** One trip to a site: from Start a visit to End visit. */
 @Serializable
@@ -150,6 +188,8 @@ data class Settings(
     val lastOldMap: String? = null,
     /** Record your path (GPS track) while a visit is on. */
     val recordPath: Boolean = true,
+    /** Your name, for permission slips. */
+    val myName: String = "",
     /** Keep the screen on while the Map tab is showing. */
     val keepScreenOn: Boolean = true,
     /** Remembered layer choices (never OLDMAP, which depends on the map that's open). */

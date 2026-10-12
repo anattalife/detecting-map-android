@@ -115,6 +115,7 @@ private fun Page(nav: Nav, s: Screen) {
         is Screen.Align -> AlignScreen(nav, s.mapId)
         Screen.Settings -> SettingsScreen(nav)
         Screen.Help -> HelpScreen(nav)
+        is Screen.PermissionSlip -> PermissionSlipScreen(nav, s.siteId, s.debug)
         is Screen.HelpTopic -> HelpTopicScreen(nav, s.id)
         is Screen.CommunityRoot -> CommunityRoot(nav, s.debug)
         is Screen.CommunityPost -> CommunityPostScreen(nav, s.id, s.debug)

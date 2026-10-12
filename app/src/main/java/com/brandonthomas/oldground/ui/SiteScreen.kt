@@ -141,6 +141,7 @@ fun SiteScreen(nav: Nav, siteId: String, debug: String? = null) {
                 Pill("Back to the map", { nav.go(Screen.Hunt(null, siteId = site.id)) }, Modifier.weight(1f), kind = "primary")
                 Pill("End visit", { com.brandonthomas.oldground.location.VisitControl.end(ctx) }, Modifier.weight(1f), kind = "soft")
             } else Pill("Start a visit", { nav.go(Screen.Hunt(null, siteId = site.id, startVisit = true)) }, Modifier.fillMaxWidth(), kind = "primary")
+            if (site.access == "Permission" || site.permission != null) PermissionCard(nav, site, finds, metric)
             Row(verticalAlignment = Alignment.Bottom) {
                 Text("Visits", Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = C.ink)
                 Text("See it on the map", Modifier.clickable { nav.go(Screen.Hunt(null, siteId = site.id)) }.padding(4.dp), color = C.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)

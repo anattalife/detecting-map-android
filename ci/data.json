@@ -81,7 +81,7 @@
    "material": "Copper",
    "depthIn": 6.0,
    "vdi": 78,
-   "detector": "XP Deus II · Program 4 · Sens 92",
+   "detector": "XP Deus II \u00b7 Program 4 \u00b7 Sens 92",
    "rating": 4
   },
   {
@@ -118,7 +118,7 @@
    "material": "Silver",
    "depthIn": 7.0,
    "vdi": 86,
-   "detector": "XP Deus II · Program 4 · Sens 92",
+   "detector": "XP Deus II \u00b7 Program 4 \u00b7 Sens 92",
    "rating": 5
   },
   {
@@ -137,7 +137,7 @@
    "material": "Brass",
    "depthIn": 5.0,
    "vdi": 62,
-   "detector": "XP Deus II · Program 4 · Sens 92",
+   "detector": "XP Deus II \u00b7 Program 4 \u00b7 Sens 92",
    "rating": 3
   },
   {
@@ -151,7 +151,7 @@
    "category": "Button",
    "material": "Copper",
    "depthIn": 4.0,
-   "detector": "XP Deus II · Program 4 · Sens 92",
+   "detector": "XP Deus II \u00b7 Program 4 \u00b7 Sens 92",
    "rating": 2
   },
   {
@@ -169,7 +169,7 @@
    "material": "Gold",
    "depthIn": 3.0,
    "vdi": 41,
-   "detector": "XP Deus II · Program 4 · Sens 92",
+   "detector": "XP Deus II \u00b7 Program 4 \u00b7 Sens 92",
    "rating": 5
   },
   {
@@ -184,7 +184,7 @@
    "material": "Copper",
    "depthIn": 4.0,
    "vdi": 77,
-   "detector": "XP Deus II · Program 4 · Sens 92",
+   "detector": "XP Deus II \u00b7 Program 4 \u00b7 Sens 92",
    "rating": 2
   },
   {
@@ -202,7 +202,7 @@
    "material": "Silver",
    "depthIn": 8.0,
    "vdi": 84,
-   "detector": "XP Deus II · Program 4 · Sens 92",
+   "detector": "XP Deus II \u00b7 Program 4 \u00b7 Sens 92",
    "rating": 5
   },
   {
@@ -217,7 +217,7 @@
    "material": "Lead",
    "depthIn": 6.0,
    "vdi": 48,
-   "detector": "XP Deus II · Program 4 · Sens 92",
+   "detector": "XP Deus II \u00b7 Program 4 \u00b7 Sens 92",
    "rating": 3
   },
   {
@@ -235,7 +235,7 @@
    "material": "Brass",
    "depthIn": 5.0,
    "vdi": 60,
-   "detector": "XP Deus II · Program 4 · Sens 92",
+   "detector": "XP Deus II \u00b7 Program 4 \u00b7 Sens 92",
    "rating": 4
   },
   {
@@ -249,7 +249,7 @@
    "category": "Relic",
    "material": "Iron",
    "depthIn": 3.0,
-   "detector": "XP Deus II · Program 4 · Sens 92",
+   "detector": "XP Deus II \u00b7 Program 4 \u00b7 Sens 92",
    "rating": 1
   }
  ],
@@ -266,7 +266,7 @@
   }
  ],
  "settings": {
-  "lastDetector": "XP Deus II · Program 4 · Sens 92"
+  "lastDetector": "XP Deus II \u00b7 Program 4 \u00b7 Sens 92"
  },
  "sites": [
   {
@@ -318,7 +318,33 @@
     ]
    ],
    "photo": "ci-tray2.jpg",
-   "createdAt": 1788361200000
+   "createdAt": 1788361200000,
+   "permission": {
+    "ownerName": "Ruth Fulton",
+    "ownerPhone": "740-555-0142",
+    "hunterName": "Brandon",
+    "startsAt": 1763322986338,
+    "expiresAt": 1792871786338,
+    "conditions": [
+     "Fill every hole and leave the ground as I found it.",
+     "Call or text before each visit."
+    ],
+    "signedAt": 1763322986338,
+    "signature": "sig-ci.png",
+    "pdf": "permission-ci.pdf"
+   },
+   "contacts": [
+    {
+     "at": 1790106986338,
+     "how": "Call",
+     "note": "Said fine to come Saturday mornings"
+    },
+    {
+     "at": 1791575786338,
+     "how": "Text",
+     "note": "Asked about renewing in spring"
+    }
+   ]
   },
   {
    "id": "s3",

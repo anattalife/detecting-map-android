@@ -82,6 +82,10 @@ shot CJOIN --es screen join
 shot CJOINNAME --es screen join --es community demo --es debug name
 shot CSETTINGS --es screen settings --es community demo
 shot CLIVE --es screen community
+shot SITEPERM --es screen site --es site s2
+shot SITESPERM --es screen sites
+shot SLIP --es screen slip --es site s1 --es debug form
+shot SLIPSIGN --es screen slip --es site s1 --es debug sign
 shot HELP --es screen help
 shot HELPTOPIC --es screen help --es topic old-maps
 adb shell "run-as $P cat files/last-crash.txt" > $OUT/last-crash.txt 2>/dev/null || true
