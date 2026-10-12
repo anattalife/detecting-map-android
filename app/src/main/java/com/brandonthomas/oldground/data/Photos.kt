@@ -74,8 +74,9 @@ object Photos {
         val side = min(src.width, src.height)
         val sq = Bitmap.createBitmap(src, (src.width - side) / 2, (src.height - side) / 2, side, side)
         val out = Bitmap.createScaledBitmap(sq, px, px, true)
-        if (sq !== src) sq.recycle()
-        src.recycle()
+        // createBitmap/createScaledBitmap can hand back the same bitmap, so only free true copies.
+        if (sq !== src && sq !== out) sq.recycle()
+        if (src !== out) src.recycle()
         thumbs["$name@$px"] = out
         out
     }
