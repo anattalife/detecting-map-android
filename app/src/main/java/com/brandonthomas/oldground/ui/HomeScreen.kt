@@ -178,10 +178,6 @@ fun HomeScreen(nav: Nav) {
                     Pill("Hunt", { nav.go(Screen.Hunt(hero?.id)) }, kind = "primary")
                 }
             }
-            if (hero != null) {
-                Spacer(Modifier.height(10.dp))
-                Pill("Hunt without an old map", { nav.go(Screen.Hunt(null)) }, Modifier.fillMaxWidth(), kind = "tint")
-            }
 
             // ---- old maps ----
             Spacer(Modifier.height(22.dp))
@@ -210,6 +206,22 @@ fun HomeScreen(nav: Nav) {
                     onMenu = { menuFor = m },
                 )
                 Spacer(Modifier.height(10.dp))
+            }
+
+            // Hunting with today's maps only.
+            Row(
+                Modifier.fillMaxWidth().card().clickable { nav.go(Screen.Hunt(null)) }.padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(Modifier.size(58.dp).clip(RoundedCornerShape(12.dp)).background(C.accentSoft), contentAlignment = Alignment.Center) {
+                    GlyphIcon(Glyph.LAYERS, C.accent, Modifier.size(26.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Today's maps only", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.ink)
+                    Text("LiDAR, satellite, topo and public land", color = C.muted, fontSize = 13.sp, maxLines = 1)
+                }
+                GlyphIcon(Glyph.CHEVRON, C.faint, Modifier.size(20.dp))
             }
 
             // ---- at a glance ----

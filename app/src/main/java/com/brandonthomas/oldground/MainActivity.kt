@@ -22,7 +22,7 @@ import com.brandonthomas.oldground.ui.PinsScreen
 sealed interface Screen {
     data object Home : Screen
     data class Align(val mapId: String) : Screen
-    data class Hunt(val mapId: String?, val pinId: String? = null, val mode: String? = null) : Screen
+    data class Hunt(val mapId: String?, val pinId: String? = null, val mode: String? = null, val debug: String? = null) : Screen
     data object Pins : Screen
 }
 
@@ -48,7 +48,15 @@ class MainActivity : ComponentActivity() {
         // Used by the automated test to open a map straight away.
         val start = buildList<Screen> {
             add(Screen.Home)
-            intent?.getStringExtra("openMap")?.let { add(Screen.Hunt(it, mode = intent.getStringExtra("mode"))) }
+            val i = intent
+            val mapExtra = i?.getStringExtra("openMap")?.takeIf { it != "none" }
+            when (i?.getStringExtra("screen")) {
+                "align" -> mapExtra?.let { add(Screen.Align(it)) }
+                "pins" -> add(Screen.Pins)
+                else -> if (i?.hasExtra("openMap") == true) {
+                    add(Screen.Hunt(mapExtra, i.getStringExtra("pin"), i.getStringExtra("mode"), i.getStringExtra("debug")))
+                }
+            }
         }
         setContent { OldGroundTheme { App(start) } }
     }
@@ -75,7 +83,7 @@ private fun App(start: List<Screen>) {
         when (s) {
             Screen.Home -> HomeScreen(nav)
             is Screen.Align -> AlignScreen(nav, s.mapId)
-            is Screen.Hunt -> HuntScreen(nav, s.mapId, s.pinId, s.mode)
+            is Screen.Hunt -> HuntScreen(nav, s.mapId, s.pinId, s.mode, s.debug)
             Screen.Pins -> PinsScreen(nav)
         }
     }

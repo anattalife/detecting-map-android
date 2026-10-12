@@ -132,7 +132,7 @@ data class PinDraft(val geo: LngLat, val name: String, val kind: com.brandonthom
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = null) {
+fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = null, debug: String? = null) {
     val ctx = LocalContext.current
     val density = LocalDensity.current
     val data by Repo.data.collectAsState()
@@ -156,6 +156,14 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
     var message by remember { mutableStateOf<Pair<String, String>?>(null) }
     var confirmDownload by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
     var landInfo by remember { mutableStateOf<PublicLand.Info?>(null) }
+    // Used by the automated screenshots to open a sheet or dialog.
+    LaunchedEffect(debug) {
+        kotlinx.coroutines.delay(1500)
+        when (debug) {
+            "more" -> moreOpen = true
+            "pin" -> Repo.current.pins.firstOrNull { it.id == pinId }?.let { p -> draft = PinDraft(p.geo, p.name, p.kind, p.note, p.id) }
+        }
+    }
     val camMemory = remember { arrayOfNulls<Cam>(1) }
     val userTookOver = remember { BooleanArray(1) }
 
@@ -685,13 +693,8 @@ private fun BottomPanel(
             if (mode == Mode.OVERLAY) {
                 var v by remember { mutableFloatStateOf(settings.overlayOpacity) }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("$topLabel ${(v * 100).roundToInt()}%", Modifier.width(130.dp), color = C.ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Slider(
-                        value = v, onValueChange = { v = it }, valueRange = 0f..1f,
-                        onValueChangeFinished = { Repo.updateSettings { it.copy(overlayOpacity = v) } },
-                        colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.line),
-                        modifier = Modifier.weight(1f),
-                    )
+                    Text("$topLabel ${(v * 100).roundToInt()}%", Modifier.width(118.dp), color = C.ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    SlimSlider(v, { v = it }, { Repo.updateSettings { it.copy(overlayOpacity = v) } }, Modifier.weight(1f))
                 }
             }
         }

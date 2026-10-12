@@ -27,6 +27,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -253,6 +257,36 @@ fun ToolButton(label: String, glyph: Glyph, onClick: () -> Unit, modifier: Modif
         GlyphIcon(glyph, if (kind == "danger") C.bad else fg)
         Spacer(Modifier.height(4.dp))
         Text(label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
+}
+
+/** A slim slider: thin track, small white thumb with a teal ring. */
+@Composable
+fun SlimSlider(value: Float, onChange: (Float) -> Unit, onDone: () -> Unit, modifier: Modifier = Modifier) {
+    var width by remember { mutableStateOf(1f) }
+    Canvas(
+        modifier
+            .height(28.dp)
+            .onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }
+            .pointerInput(Unit) {
+                detectTapGestures { o -> onChange((o.x / width).coerceIn(0f, 1f)); onDone() }
+            }
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(onDragEnd = onDone) { change, _ ->
+                    change.consume()
+                    onChange((change.position.x / width).coerceIn(0f, 1f))
+                }
+            }
+            .semantics { contentDescription = "Fade ${(value * 100).toInt()} percent" },
+    ) {
+        val r = 10.dp.toPx()
+        val y = size.height / 2
+        val x = r + (size.width - 2 * r) * value
+        drawLine(C.line, Offset(r, y), Offset(size.width - r, y), 4.dp.toPx(), StrokeCap.Round)
+        drawLine(C.accent, Offset(r, y), Offset(x, y), 4.dp.toPx(), StrokeCap.Round)
+        drawCircle(Color(0x2214201D), r + 1.5.dp.toPx(), Offset(x, y + 1.dp.toPx()))
+        drawCircle(Color.White, r, Offset(x, y))
+        drawCircle(C.accent, r - 1.dp.toPx(), Offset(x, y), style = Stroke(2.5.dp.toPx()))
     }
 }
 
