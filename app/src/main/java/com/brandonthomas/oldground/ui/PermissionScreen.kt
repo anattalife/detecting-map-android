@@ -112,7 +112,7 @@ fun PermissionCard(nav: Nav, site: Site, finds: List<Pin>, metric: Boolean) {
         val log = site.contacts.sortedByDescending { it.at }
         if (log.isEmpty()) Text("Note each call, text or chat with the landowner, so you remember what was said.", fontSize = 12.5.sp, color = C.muted)
         for (c in if (showAll) log else log.take(3)) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(Permissions.date(c.at), Modifier.width(96.dp), fontSize = 12.5.sp, color = C.muted)
+            Text(java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()).format(java.util.Date(c.at)), Modifier.width(56.dp), fontSize = 12.5.sp, color = C.muted, maxLines = 1)
             Text(c.how + if (c.note.isNotBlank()) " · ${c.note}" else "", Modifier.weight(1f), fontSize = 13.sp, color = BODY)
         }
         if (log.size > 3 && !showAll) Text("Show all ${log.size}", Modifier.clickable { showAll = true }, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = C.accent)
