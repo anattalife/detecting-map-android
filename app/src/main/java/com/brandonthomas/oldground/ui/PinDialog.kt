@@ -190,8 +190,8 @@ fun PinDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (p in photos) PhotoTile(p) { photos.remove(p) }
                     if (photos.size < MAX_PHOTOS) {
-                        AddTile("Take photo", Glyph.PLUS) { takePhoto.launch(cameraUri) }
-                        if (photos.size < MAX_PHOTOS - 1 || photos.isEmpty()) AddTile("Choose", Glyph.LAYERS) {
+                        AddTile("Take photo", Glyph.CAMERA) { takePhoto.launch(cameraUri) }
+                        if (photos.size < MAX_PHOTOS - 1 || photos.isEmpty()) AddTile("Choose", Glyph.IMAGE) {
                             pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                         }
                     }
