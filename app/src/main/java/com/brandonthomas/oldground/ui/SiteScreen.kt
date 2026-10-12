@@ -170,6 +170,7 @@ fun SiteScreen(nav: Nav, siteId: String, debug: String? = null) {
         onDelete = {
             editing = false
             site.photo?.let { Photos.delete(ctx, it) }
+            site.permission?.let { p -> com.brandonthomas.oldground.data.Permissions.file(ctx, p.signature).delete(); com.brandonthomas.oldground.data.Permissions.file(ctx, p.pdf).delete() }
             Repo.deleteSite(site.id)
             nav.back()
         },
