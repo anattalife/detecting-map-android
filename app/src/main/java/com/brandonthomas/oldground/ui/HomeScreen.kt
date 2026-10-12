@@ -180,7 +180,7 @@ fun HomeScreen(nav: Nav) {
             }
             if (hero != null) {
                 Spacer(Modifier.height(10.dp))
-                Pill("Open the map without an old map", { nav.go(Screen.Hunt(null)) }, Modifier.fillMaxWidth(), kind = "tint")
+                Pill("Hunt without an old map", { nav.go(Screen.Hunt(null)) }, Modifier.fillMaxWidth(), kind = "tint")
             }
 
             // ---- old maps ----
