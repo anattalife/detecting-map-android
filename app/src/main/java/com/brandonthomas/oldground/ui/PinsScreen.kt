@@ -52,6 +52,9 @@ import java.text.DateFormat
 import java.time.Instant
 import java.util.Date
 
+/** Used by the automated screenshots to open on one kind. */
+var pinsStartFilter: PinKind? = null
+
 /** Every pin, nearest first, plus recorded tracks and GPX export. */
 @Composable
 fun PinsScreen(nav: Nav) {
@@ -61,13 +64,15 @@ fun PinsScreen(nav: Nav) {
     val fix by LocationHub.fix.collectAsState()
     val metric = data.settings.metric
 
-    var filter by remember { mutableStateOf<PinKind?>(null) }
+    var filter by remember { mutableStateOf(pinsStartFilter.also { pinsStartFilter = null }) }
+    var material by remember { mutableStateOf<String?>(null) }
     var deletingTrack by remember { mutableStateOf<TrackMeta?>(null) }
     var message by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     val here = fix?.geo
     val pins = data.pins
         .filter { filter == null || it.kind == filter }
+        .filter { filter != PinKind.FIND || material == null || it.material == material }
         .sortedWith(compareBy<Pin> { p -> here?.let { Mercator.distanceMeters(it, p.geo) } ?: 0.0 }.thenByDescending { it.createdAt })
 
     fun exportGpx() {
@@ -76,7 +81,10 @@ fun PinsScreen(nav: Nav) {
             return
         }
         val gpx = Gpx.build(
-            data.pins.map { Gpx.Waypoint(it.name, it.geo, listOf(it.kind.label, it.note).filter { s -> s.isNotBlank() }.joinToString(" — "), Instant.ofEpochMilli(it.createdAt).toString()) },
+            data.pins.map {
+                val details = if (it.kind == PinKind.FIND) findSummary(it, metric) + (it.rating.takeIf { r -> r > 0 }?.let { r -> " · $r/5" } ?: "") + (it.detector?.let { d -> " · $d" } ?: "") else it.kind.label
+                Gpx.Waypoint(it.name, it.geo, listOf(details, it.note).filter { s -> s.isNotBlank() }.joinToString(" — "), Instant.ofEpochMilli(it.createdAt).toString())
+            },
             data.tracks.mapNotNull { t ->
                 val pts = trackPts[t.id].orEmpty()
                 if (pts.size < 2) null else Gpx.Track(t.name, pts.map { Gpx.TrackPoint(com.brandonthomas.oldground.geo.LngLat(it.lng, it.lat), it.timeMs) })
@@ -110,7 +118,20 @@ fun PinsScreen(nav: Nav) {
             Spacer(Modifier.height(8.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FilterChip("All", null, filter == null) { filter = null }
-                for (k in PinKind.entries) FilterChip(k.label, k.color, filter == k) { filter = k }
+                for (k in PinKind.entries) {
+                    val n = data.pins.count { it.kind == k }
+                    FilterChip(if (n > 0) "${k.label} $n" else k.label, k.color, filter == k) { filter = k; material = null }
+                }
+            }
+            if (filter == PinKind.FIND) {
+                val counts = data.pins.filter { it.kind == PinKind.FIND }.mapNotNull { it.material }.groupingBy { it }.eachCount()
+                if (counts.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        SubChip("Any material", material == null) { material = null }
+                        for (m in com.brandonthomas.oldground.data.FIND_MATERIALS) counts[m]?.let { n -> SubChip("$m $n", material == m) { material = m } }
+                    }
+                }
             }
             Spacer(Modifier.height(8.dp))
             if (here == null && pins.isNotEmpty()) {
@@ -130,15 +151,21 @@ fun PinsScreen(nav: Nav) {
                 Row(
                     Modifier.fillMaxWidth().card()
                         .clickable { nav.go(Screen.Hunt(p.mapId?.takeIf { id -> Repo.map(id)?.aligned == true }, p.id)) }
-                        .padding(12.dp),
+                        .padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Box(Modifier.size(14.dp).clip(CircleShape).background(hexColor(p.kind.color)))
+                    val photo = p.photos.firstOrNull()
+                    if (photo != null) PhotoThumb(photo, Modifier.size(54.dp).clip(RoundedCornerShape(12.dp)), px = 200)
+                    else Box(Modifier.size(54.dp).clip(RoundedCornerShape(12.dp)).background(C.soft), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(14.dp).clip(CircleShape).background(hexColor(p.kind.color)))
+                    }
                     Column(Modifier.weight(1f)) {
-                        Text(p.name, fontWeight = FontWeight.Bold, color = C.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val sub = listOfNotNull(p.kind.label, p.mapId?.let { id -> Repo.map(id)?.name }, p.note.takeIf { it.isNotBlank() }).joinToString(" · ")
-                        Text(sub, color = C.muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(p.name, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = C.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val sub = if (p.kind == PinKind.FIND) findSummary(p, metric)
+                        else listOfNotNull(p.kind.label, p.mapId?.let { id -> Repo.map(id)?.name }, p.note.takeIf { it.isNotBlank() }).joinToString(" · ")
+                        Text(sub, color = C.muted, fontSize = 12.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (p.rating > 0) Stars(p.rating)
                     }
                     if (dist != null) {
                         Column(horizontalAlignment = Alignment.End) {
@@ -201,4 +228,17 @@ private fun FilterChip(label: String, color: String?, on: Boolean, onClick: () -
         if (color != null) Box(Modifier.size(10.dp).clip(CircleShape).background(hexColor(color)))
         Text(label, fontSize = 13.sp, color = if (on) Color.White else C.ink, fontWeight = FontWeight.Bold)
     }
+}
+
+@Composable
+private fun SubChip(label: String, on: Boolean, onClick: () -> Unit) {
+    Text(
+        label,
+        Modifier.clip(RoundedCornerShape(20.dp))
+            .background(if (on) C.accentSoft else C.panel)
+            .border(1.dp, if (on) C.accentSoft else C.line, RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 11.dp, vertical = 5.dp),
+        fontSize = 12.5.sp, color = if (on) C.accent else C.ink, fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold,
+    )
 }

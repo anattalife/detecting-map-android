@@ -66,6 +66,7 @@ import com.brandonthomas.oldground.Nav
 import com.brandonthomas.oldground.data.Layer
 import com.brandonthomas.oldground.data.LidarStyle
 import com.brandonthomas.oldground.data.OldMap
+import com.brandonthomas.oldground.data.Photos
 import com.brandonthomas.oldground.data.Pin
 import com.brandonthomas.oldground.data.Repo
 import com.brandonthomas.oldground.data.Settings
@@ -120,8 +121,6 @@ class ScanFrame(val map: OldMap, val georef: Georef) {
     fun base(): Base? = map.scan?.takeIf { it.ready }?.let { Base.Scan(Sources.tiles(map.id, it, "scan-${it.zDone}")) }
 }
 
-data class PinDraft(val geo: LngLat, val name: String, val kind: com.brandonthomas.oldground.data.PinKind, val note: String, val editing: String?)
-
 /**
  * The hunt screen. Four views, each showing layers you choose (LiDAR, Satellite, Topo,
  * Streets, and the old map when one is open). Tap a ▾ label to change a layer.
@@ -156,12 +155,17 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
     var message by remember { mutableStateOf<Pair<String, String>?>(null) }
     var confirmDownload by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
     var landInfo by remember { mutableStateOf<PublicLand.Info?>(null) }
+    var cardPin by remember { mutableStateOf<String?>(null) }
+    var guideTo by remember { mutableStateOf<String?>(null) }
     // Used by the automated screenshots to open a sheet or dialog.
     LaunchedEffect(debug) {
         kotlinx.coroutines.delay(1500)
         when (debug) {
+            null -> if (pinId != null) cardPin = pinId
             "more" -> moreOpen = true
-            "pin" -> Repo.current.pins.firstOrNull { it.id == pinId }?.let { p -> draft = PinDraft(p.geo, p.name, p.kind, p.note, p.id) }
+            "pin" -> Repo.current.pins.firstOrNull { it.id == pinId }?.let { p -> draft = PinDraft.of(p) }
+            "card" -> cardPin = pinId
+            "new" -> Repo.current.pins.firstOrNull { it.id == pinId }?.let { p -> draft = PinDraft(p.geo, "", com.brandonthomas.oldground.data.PinKind.FIND, "", null) }
         }
     }
     val camMemory = remember { arrayOfNulls<Cam>(1) }
@@ -203,9 +207,9 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
         when {
             pinMode && geo != null -> {
                 pinMode = false
-                draft = PinDraft(geo, "", com.brandonthomas.oldground.data.PinKind.HOMESITE, "", null)
+                draft = PinDraft(geo, "", com.brandonthomas.oldground.data.PinKind.FIND, "", null)
             }
-            hit != null -> data.pins.firstOrNull { it.id == hit }?.let { p -> draft = PinDraft(p.geo, p.name, p.kind, p.note, p.id) }
+            hit != null -> cardPin = hit
             land != null -> landInfo = PublicLand.describe(land)
         }
     }
@@ -411,7 +415,7 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
         // ---- keep data on every map current ----
         for ((_, pair) in live) {
             val (m, scan) = pair
-            MapDataSync(m, scan, data.pins, trackPts, fix, settings.publicLand)
+            MapDataSync(m, scan, data.pins, trackPts, fix, settings.publicLand, guideTo?.let { id -> data.pins.firstOrNull { it.id == id } })
         }
 
         // ---- follow me ----
@@ -458,7 +462,7 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
                     pinMode = false
                     val f = LocationHub.fix.value
                     if (f == null) message = "No GPS fix yet" to "Wait for the blue dot, or tap the map where you want the pin."
-                    else draft = PinDraft(f.geo, "", com.brandonthomas.oldground.data.PinKind.HOMESITE, "", null)
+                    else draft = PinDraft(f.geo, "", com.brandonthomas.oldground.data.PinKind.FIND, "", null)
                 })
             }
         }
@@ -470,7 +474,8 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
             topLabel = slot(Slot.OVERLAY_TOP).label,
             onLayers = { moreOpen = true },
             onPin = { pinMode = !pinMode },
-            onOpenPin = { p -> draft = PinDraft(p.geo, p.name, p.kind, p.note, p.id) },
+            onOpenPin = { p -> cardPin = p.id },
+            guided = guideTo?.let { id -> data.pins.firstOrNull { it.id == id } },
             onLocate = {
                 val f = LocationHub.fix.value
                 if (!follow && f != null) for ((name, p) in live) {
@@ -543,14 +548,33 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
         )
     }
     draft?.let { d ->
-        PinDialog(d, fix?.let { Mercator.distanceMeters(it.geo, d.geo) }, settings.metric,
+        PinDialog(d, fix?.let { Mercator.distanceMeters(it.geo, d.geo) }, settings.metric, settings.lastDetector,
             onCancel = { draft = null },
-            onDelete = d.editing?.let { id -> { Repo.deletePin(id); draft = null } },
-        ) { saved ->
-            if (saved.editing != null) Repo.updatePin(saved.editing) { it.copy(name = saved.name, kind = saved.kind, note = saved.note) }
-            else Repo.addPin(Pin(Repo.newId(), saved.name.ifBlank { "Pin" }, saved.kind, saved.geo.lng, saved.geo.lat, saved.note, mapId, System.currentTimeMillis()))
+            onDelete = d.editing?.let { id -> { Repo.deletePin(id); if (guideTo == id) guideTo = null; draft = null } },
+        ) { s ->
+            if (s.editing != null) Repo.updatePin(s.editing) {
+                it.copy(
+                    name = s.name.ifBlank { it.name }, kind = s.kind, note = s.note, photos = s.photos, category = s.category,
+                    material = s.material, depthIn = s.depthIn, vdi = s.vdi, detector = s.detector, rating = s.rating,
+                )
+            } else Repo.addPin(
+                Pin(
+                    Repo.newId(), s.name.ifBlank { if (s.kind == com.brandonthomas.oldground.data.PinKind.FIND) s.category ?: "Find" else "Pin" },
+                    s.kind, s.geo.lng, s.geo.lat, s.note, mapId, System.currentTimeMillis(), s.photos, s.category, s.material,
+                    s.depthIn, s.vdi, s.detector, s.rating,
+                ),
+            )
+            if (!s.detector.isNullOrBlank() && s.detector != settings.lastDetector) Repo.updateSettings { it.copy(lastDetector = s.detector) }
             draft = null
         }
+    }
+    cardPin?.let { id -> data.pins.firstOrNull { it.id == id } }?.let { p ->
+        FindCard(
+            p, fix, settings.metric, p.mapId?.let { mid -> data.maps.firstOrNull { it.id == mid }?.name }, guideTo == p.id,
+            onGuide = { guideTo = if (guideTo == p.id) null else p.id; cardPin = null },
+            onEdit = { cardPin = null; draft = PinDraft.of(p) },
+            onDismiss = { cardPin = null },
+        )
     }
     message?.let { (t, b) -> MessageDialog(t, b) { message = null } }
     landInfo?.let { i ->
@@ -578,8 +602,9 @@ private fun LiveMap(name: String, m: OgMap, scan: ScanFrame?, live: MutableMap<S
 
 /** Pins, tracks and the GPS dot on one map, kept current. */
 @Composable
-private fun MapDataSync(m: OgMap, scan: ScanFrame?, pins: List<Pin>, tracks: Map<String, List<TrackPt>>, fix: Fix?, publicLand: Boolean) {
+private fun MapDataSync(m: OgMap, scan: ScanFrame?, pins: List<Pin>, tracks: Map<String, List<TrackPt>>, fix: Fix?, publicLand: Boolean, guided: Pin?) {
     val ctx = LocalContext.current
+    val markerPx = with(LocalDensity.current) { 40.dp.roundToPx() }
     // Public land on real-world maps, refreshed whenever the map stops moving.
     androidx.compose.runtime.DisposableEffect(m, scan, publicLand) {
         if (scan != null || !publicLand) {
@@ -612,7 +637,22 @@ private fun MapDataSync(m: OgMap, scan: ScanFrame?, pins: List<Pin>, tracks: Map
     }
     val place: (LngLat) -> LngLat? = { g -> if (scan == null) g else scan.place(g) }
     val placeLine: (LngLat) -> LngLat? = { g -> if (scan == null) g else scan.placeAny(g) }
-    LaunchedEffect(m, scan, pins) { m.setData(Data.PINS, Features.pins(pins, place)) }
+    LaunchedEffect(m, scan, pins) {
+        // Round photo markers first, so photo pins never show without their picture.
+        val firsts = pins.mapNotNull { it.photos.firstOrNull() }.distinct().filter { !m.hasImage(Features.photoImageId(it)) }
+        if (firsts.isNotEmpty()) {
+            val imgs = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                firsts.mapNotNull { n -> Photos.mapMarker(ctx, n, markerPx)?.let { Features.photoImageId(n) to it } }.toMap()
+            }
+            m.addImages(imgs)
+        }
+        m.setData(Data.PINS, Features.pins(pins.map { p -> if (p.photos.isNotEmpty() && !m.hasImage(Features.photoImageId(p.photos.first()))) p.copy(photos = emptyList()) else p }, place))
+    }
+    LaunchedEffect(m, scan, fix, guided) {
+        val from = fix?.geo?.let(placeLine)
+        val to = guided?.geo?.let(placeLine)
+        m.setData(Data.GUIDE, Features.guide(from, to))
+    }
     LaunchedEffect(m, scan, tracks) { m.setData(Data.TRACKS, Features.tracks(tracks.values, placeLine)) }
     LaunchedEffect(m, scan, fix) {
         val north = if (scan != null && fix != null) scan.northAngle(fix.geo) else 0.0
@@ -623,7 +663,7 @@ private fun MapDataSync(m: OgMap, scan: ScanFrame?, pins: List<Pin>, tracks: Map
 @Composable
 private fun BottomPanel(
     mode: Mode, settings: Settings, follow: Boolean, pinMode: Boolean, recordingSince: Long?, fix: Fix?, pins: List<Pin>, topLabel: String,
-    onLayers: () -> Unit, onPin: () -> Unit, onOpenPin: (Pin) -> Unit, onLocate: () -> Unit, modifier: Modifier,
+    onLayers: () -> Unit, onPin: () -> Unit, onOpenPin: (Pin) -> Unit, onLocate: () -> Unit, modifier: Modifier, guided: Pin? = null,
 ) {
     val ctx = LocalContext.current
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { TrackService.start(ctx) }
@@ -640,7 +680,7 @@ private fun BottomPanel(
         val mins = ((now - it) / 60_000).coerceAtLeast(0)
         "${mins / 60}:${"%02d".format(mins % 60)}"
     }
-    val nearest = fix?.let { f -> pins.minByOrNull { Mercator.distanceMeters(f.geo, it.geo) } }
+    val nearest = guided ?: fix?.let { f -> pins.minByOrNull { Mercator.distanceMeters(f.geo, it.geo) } }
     val shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
     Column(
         modifier.fillMaxWidth()
@@ -669,12 +709,21 @@ private fun BottomPanel(
                 if (nearest != null && fix != null) {
                     val d = Mercator.distanceMeters(fix.geo, nearest.geo)
                     val dir = Mercator.compass(Mercator.bearing(fix.geo, nearest.geo))
-                    Box(Modifier.size(40.dp).clip(CircleShape).background(C.badSoft).clickable { onOpenPin(nearest) }, contentAlignment = Alignment.Center) {
+                    val photo = nearest.photos.firstOrNull()
+                    if (photo != null) PhotoThumb(photo, Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).clickable { onOpenPin(nearest) }, px = 160)
+                    else Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(C.soft).clickable { onOpenPin(nearest) }, contentAlignment = Alignment.Center) {
                         Box(Modifier.size(12.dp).clip(CircleShape).background(hexColor(nearest.kind.color)))
                     }
                     Column(Modifier.weight(1f).clickable { onOpenPin(nearest) }) {
                         Text(nearest.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.ink, maxLines = 1)
-                        Text("${Mercator.formatDistance(d, settings.metric)} $dir · ${nearest.kind.label}", fontSize = 13.sp, color = C.muted, maxLines = 1)
+                        val what = if (nearest.kind == com.brandonthomas.oldground.data.PinKind.FIND)
+                            listOfNotNull(nearest.material, nearest.depthIn?.let { depthLabel(it, settings.metric) }).joinToString(" · ").ifEmpty { nearest.kind.label }
+                        else nearest.kind.label
+                        Text(
+                            (if (guided != null) "Guiding · " else "") + "${Mercator.formatDistance(d, settings.metric)} $dir · $what",
+                            fontSize = 13.sp, color = if (guided != null) C.accent else C.muted, maxLines = 1,
+                            fontWeight = if (guided != null) FontWeight.SemiBold else FontWeight.Normal,
+                        )
                     }
                 } else {
                     Column(Modifier.weight(1f)) {

@@ -1,17 +1,186 @@
-{"maps":[{"id":"ci1","name":"1875 Licking Township Atlas","createdAt":0,"image":"original.jpg","width":2400,"height":1800,
-"anchors":[
-{"id":"a1","imgX":200.0,"imgY":200.0,"lng":-82.99879,"lat":39.96473},
-{"id":"a2","imgX":2200.0,"imgY":180.0,"lng":-82.98121,"lat":39.96486},
-{"id":"a3","imgX":1200.0,"imgY":900.0,"lng":-82.99000,"lat":39.96000},
-{"id":"a4","imgX":250.0,"imgY":1600.0,"lng":-82.99835,"lat":39.95527},
-{"id":"a5","imgX":2150.0,"imgY":1650.0,"lng":-82.98165,"lat":39.95493},
-{"id":"a6","imgX":1100.0,"imgY":650.0,"lng":-82.99088,"lat":39.96169}
-]}],
-"pins":[
-{"id":"p1","name":"J. Miller homestead","kind":"HOMESITE","lng":-82.99563,"lat":39.96142,"note":"House on the 1875 atlas, gone by 1912.","mapId":"ci1","createdAt":1760000000000},
-{"id":"p2","name":"1864 Indian Head cent","kind":"FIND","lng":-82.99528,"lat":39.96115,"note":"8 inches, by the old lane.","mapId":"ci1","createdAt":1760100000000},
-{"id":"p3","name":"Fulton farm","kind":"PERMISSION","lng":-82.98771,"lat":39.95811,"note":"OK to hunt after harvest.","createdAt":1760200000000},
-{"id":"p4","name":"Old mill race","kind":"LIDAR","lng":-82.98560,"lat":39.95595,"note":"Ditch shows on Stretched LiDAR.","createdAt":1760300000000}
-],
-"tracks":[{"id":"t1","name":"Hunt Oct 4, 2026","startedAt":1759590000000}],
-"settings":{}}
+{
+ "maps": [
+  {
+   "id": "ci1",
+   "name": "1875 Licking Township Atlas",
+   "createdAt": 0,
+   "image": "original.jpg",
+   "width": 2400,
+   "height": 1800,
+   "anchors": [
+    {
+     "id": "a1",
+     "imgX": 200.0,
+     "imgY": 200.0,
+     "lng": -82.99879,
+     "lat": 39.96473
+    },
+    {
+     "id": "a2",
+     "imgX": 2200.0,
+     "imgY": 180.0,
+     "lng": -82.98121,
+     "lat": 39.96486
+    },
+    {
+     "id": "a3",
+     "imgX": 1200.0,
+     "imgY": 900.0,
+     "lng": -82.99,
+     "lat": 39.96
+    },
+    {
+     "id": "a4",
+     "imgX": 250.0,
+     "imgY": 1600.0,
+     "lng": -82.99835,
+     "lat": 39.95527
+    },
+    {
+     "id": "a5",
+     "imgX": 2150.0,
+     "imgY": 1650.0,
+     "lng": -82.98165,
+     "lat": 39.95493
+    },
+    {
+     "id": "a6",
+     "imgX": 1100.0,
+     "imgY": 650.0,
+     "lng": -82.99088,
+     "lat": 39.96169
+    }
+   ]
+  }
+ ],
+ "pins": [
+  {
+   "id": "p1",
+   "name": "J. Miller homestead",
+   "kind": "HOMESITE",
+   "lng": -82.99563,
+   "lat": 39.96142,
+   "note": "House on the 1875 atlas, gone by 1912.",
+   "mapId": "ci1",
+   "createdAt": 1760000000000
+  },
+  {
+   "id": "p2",
+   "name": "1864 Indian Head cent",
+   "kind": "FIND",
+   "lng": -82.99528,
+   "lat": 39.96115,
+   "note": "By the old lane, near the Miller house.",
+   "mapId": "ci1",
+   "createdAt": 1760100000000,
+   "photos": [
+    "ci-cent1.jpg",
+    "ci-cent2.jpg"
+   ],
+   "category": "Coin",
+   "material": "Copper",
+   "depthIn": 6.0,
+   "vdi": 78,
+   "detector": "XP Deus II · Program 4 · Sens 92",
+   "rating": 4
+  },
+  {
+   "id": "p3",
+   "name": "Fulton farm",
+   "kind": "PERMISSION",
+   "lng": -82.98771,
+   "lat": 39.95811,
+   "note": "OK to hunt after harvest.",
+   "createdAt": 1760200000000
+  },
+  {
+   "id": "p4",
+   "name": "Old mill race",
+   "kind": "LIDAR",
+   "lng": -82.9856,
+   "lat": 39.95595,
+   "note": "Ditch shows on Stretched LiDAR.",
+   "createdAt": 1760300000000
+  },
+  {
+   "id": "p5",
+   "name": "1901 Barber dime",
+   "kind": "FIND",
+   "lng": -82.99447,
+   "lat": 39.96072,
+   "note": "Edge of the yard, under the maple.",
+   "mapId": "ci1",
+   "createdAt": 1760400000000,
+   "photos": [
+    "ci-dime.jpg"
+   ],
+   "category": "Coin",
+   "material": "Silver",
+   "depthIn": 7.0,
+   "vdi": 86,
+   "detector": "XP Deus II · Program 4 · Sens 92",
+   "rating": 5
+  },
+  {
+   "id": "p6",
+   "name": "Eagle coat button",
+   "kind": "FIND",
+   "lng": -82.9936,
+   "lat": 39.96118,
+   "note": "",
+   "mapId": "ci1",
+   "createdAt": 1760500000000,
+   "photos": [
+    "ci-button.jpg"
+   ],
+   "category": "Button",
+   "material": "Brass",
+   "depthIn": 5.0,
+   "vdi": 62,
+   "detector": "XP Deus II · Program 4 · Sens 92",
+   "rating": 3
+  },
+  {
+   "id": "p7",
+   "name": "Flat button",
+   "kind": "FIND",
+   "lng": -82.9909,
+   "lat": 39.9604,
+   "note": "",
+   "createdAt": 1760600000000,
+   "category": "Button",
+   "material": "Copper",
+   "depthIn": 4.0,
+   "detector": "XP Deus II · Program 4 · Sens 92",
+   "rating": 2
+  },
+  {
+   "id": "p8",
+   "name": "10K gold band",
+   "kind": "FIND",
+   "lng": -83.028,
+   "lat": 39.945,
+   "note": "",
+   "createdAt": 1760700000000,
+   "photos": [
+    "ci-ring.jpg"
+   ],
+   "category": "Jewelry",
+   "material": "Gold",
+   "depthIn": 3.0,
+   "vdi": 41,
+   "detector": "XP Deus II · Program 4 · Sens 92",
+   "rating": 5
+  }
+ ],
+ "tracks": [
+  {
+   "id": "t1",
+   "name": "Hunt Oct 4, 2026",
+   "startedAt": 1759590000000
+  }
+ ],
+ "settings": {
+  "lastDetector": "XP Deus II · Program 4 · Sens 92"
+ }
+}

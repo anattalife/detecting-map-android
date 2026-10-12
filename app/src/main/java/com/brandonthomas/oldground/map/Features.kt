@@ -25,8 +25,17 @@ object Features {
                 addStringProperty("id", p.id)
                 addStringProperty("name", p.name)
                 addStringProperty("color", p.kind.color)
+                p.photos.firstOrNull()?.let { addStringProperty("photo", photoImageId(it)) }
             }
         })
+
+    /** Map image id for a pin's first photo. */
+    fun photoImageId(photo: String) = "pin-photo-$photo"
+
+    /** A dashed line from you to the pin you're being guided to. */
+    fun guide(from: LngLat?, to: LngLat?): FeatureCollection =
+        if (from == null || to == null) empty
+        else FeatureCollection.fromFeature(Feature.fromGeometry(LineString.fromLngLats(listOf(pt(from), pt(to)))))
 
     fun tracks(tracks: Collection<List<TrackPt>>, place: (LngLat) -> LngLat?): FeatureCollection =
         FeatureCollection.fromFeatures(tracks.mapNotNull { pts ->

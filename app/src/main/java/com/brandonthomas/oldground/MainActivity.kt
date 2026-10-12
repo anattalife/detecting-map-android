@@ -52,7 +52,10 @@ class MainActivity : ComponentActivity() {
             val mapExtra = i?.getStringExtra("openMap")?.takeIf { it != "none" }
             when (i?.getStringExtra("screen")) {
                 "align" -> mapExtra?.let { add(Screen.Align(it)) }
-                "pins" -> add(Screen.Pins)
+                "pins" -> {
+                    if (i.getStringExtra("debug") == "finds") com.brandonthomas.oldground.ui.pinsStartFilter = com.brandonthomas.oldground.data.PinKind.FIND
+                    add(Screen.Pins)
+                }
                 else -> if (i?.hasExtra("openMap") == true) {
                     add(Screen.Hunt(mapExtra, i.getStringExtra("pin"), i.getStringExtra("mode"), i.getStringExtra("debug")))
                 }

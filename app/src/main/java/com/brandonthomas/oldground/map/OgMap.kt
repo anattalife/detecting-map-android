@@ -39,7 +39,7 @@ sealed class Base {
 }
 
 /** The data drawn on top of a map, in drawing order. */
-enum class Data { LAND, TRACKS, MESH, ANCHORS, PINS, GHOST, GPS }
+enum class Data { LAND, TRACKS, GUIDE, MESH, ANCHORS, PINS, GHOST, GPS }
 
 data class Cam(val center: LngLat, val zoom: Double, val bearing: Double)
 
@@ -59,6 +59,7 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
     private var overlay: Sources.Raster? = null
     private var overlayOpacity = 1f
     private val data = HashMap<Data, FeatureCollection>()
+    private val images = HashMap<String, Bitmap>()
     private var pendingCam: Cam? = null
 
     var onMove: ((Cam, Boolean) -> Unit)? = null
@@ -100,7 +101,7 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
             m.addOnMapClickListener { ll ->
                 val p = m.projection.toScreenLocation(ll)
                 val hit = runCatching {
-                    m.queryRenderedFeatures(RectF(p.x - 24, p.y - 24, p.x + 24, p.y + 24), "pins-circle", "anchors-circle")
+                    m.queryRenderedFeatures(RectF(p.x - 24, p.y - 24, p.x + 24, p.y + 24), "pins-photo", "pins-circle", "anchors-circle")
                         .firstOrNull()?.getStringProperty("id")
                 }.getOrNull()
                 val land = if (hit != null) null else runCatching {
@@ -176,6 +177,7 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
         m.setStyle(builder) { s ->
             style = s
             s.addImage("og-arrow", arrowBitmap())
+            for ((id, b) in images) s.addImage(id, b)
             applyOverlay(force = true)
             for (d in Data.entries) addDataLayer(s, d)
         }
@@ -215,6 +217,18 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
         }
     }
 
+    // ---------- images (photo pins) ----------
+
+    fun hasImage(id: String) = id in images
+
+    /** Adds map images by id (kept across style reloads). */
+    fun addImages(add: Map<String, Bitmap>) {
+        val fresh = add.filterKeys { it !in images }
+        if (fresh.isEmpty()) return
+        images.putAll(fresh)
+        style?.let { s -> for ((id, b) in fresh) s.addImage(id, b) }
+    }
+
     // ---------- data layers ----------
 
     fun setData(d: Data, fc: FeatureCollection) {
@@ -240,6 +254,12 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
                 s.addLayer(FillLayer("og-land-fill", sid).withProperties(PropertyFactory.fillColor(color), PropertyFactory.fillOpacity(0.16f)))
                 s.addLayer(LineLayer("og-land-line", sid).withProperties(PropertyFactory.lineColor(color), PropertyFactory.lineWidth(2f), PropertyFactory.lineOpacity(0.9f)))
             }
+            Data.GUIDE -> s.addLayer(
+                LineLayer("og-guide", sid).withProperties(
+                    PropertyFactory.lineColor("#0f766e"), PropertyFactory.lineWidth(3f),
+                    PropertyFactory.lineDasharray(arrayOf(1.5f, 1.5f)), PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                ),
+            )
             Data.TRACKS -> s.addLayer(
                 LineLayer("og-tracks", sid).withProperties(
                     PropertyFactory.lineColor("#ff6d00"), PropertyFactory.lineWidth(3f), PropertyFactory.lineOpacity(0.85f),
@@ -259,16 +279,25 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
                 ),
             )
             Data.PINS -> {
+                val hasPhoto = Expression.has("photo")
                 s.addLayer(
                     CircleLayer("pins-circle", sid).withProperties(
                         PropertyFactory.circleRadius(8f), PropertyFactory.circleColor(Expression.toColor(get("color"))),
                         PropertyFactory.circleStrokeColor("#ffffff"), PropertyFactory.circleStrokeWidth(2.5f),
-                    ),
+                    ).withFilter(Expression.not(hasPhoto)),
+                )
+                // Pins with a photo show it as a round thumbnail.
+                s.addLayer(
+                    SymbolLayer("pins-photo", sid).withProperties(
+                        PropertyFactory.iconImage(get("photo")), PropertyFactory.iconAllowOverlap(true),
+                        PropertyFactory.iconIgnorePlacement(true),
+                    ).withFilter(hasPhoto),
                 )
                 s.addLayer(
                     SymbolLayer("og-pins-label", sid).withProperties(
                         PropertyFactory.textField(get("name")), PropertyFactory.textFont(arrayOf(Sources.FONT)),
-                        PropertyFactory.textSize(13f), PropertyFactory.textOffset(arrayOf(0f, 1.3f)),
+                        PropertyFactory.textSize(13f),
+                        PropertyFactory.textOffset(Expression.switchCase(hasPhoto, Expression.literal(arrayOf(0f, 1.9f)), Expression.literal(arrayOf(0f, 1.3f)))),
                         PropertyFactory.textAnchor(Property.TEXT_ANCHOR_TOP), PropertyFactory.textColor("#1f2622"),
                         PropertyFactory.textHaloColor("#ffffff"), PropertyFactory.textHaloWidth(1.6f), PropertyFactory.textOptional(true),
                     ),

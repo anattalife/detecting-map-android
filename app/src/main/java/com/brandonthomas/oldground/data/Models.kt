@@ -68,9 +68,23 @@ data class Pin(
     val note: String = "",
     val mapId: String? = null,
     val createdAt: Long,
+    /** Photo file names in the photos folder, first one shown on the map. */
+    val photos: List<String> = emptyList(),
+    // Find details (used when kind is FIND).
+    val category: String? = null,
+    val material: String? = null,
+    /** Depth in inches (shown in cm when metric). */
+    val depthIn: Double? = null,
+    val vdi: Int? = null,
+    val detector: String? = null,
+    /** 0 = not rated, 1..5 stars. */
+    val rating: Int = 0,
 ) {
     val geo get() = LngLat(lng, lat)
 }
+
+val FIND_CATEGORIES = listOf("Coin", "Relic", "Button", "Jewelry", "Token", "Other")
+val FIND_MATERIALS = listOf("Copper", "Silver", "Gold", "Brass", "Lead", "Iron", "Other")
 
 @Serializable
 data class TrackMeta(val id: String, val name: String, val startedAt: Long)
@@ -101,6 +115,8 @@ data class Settings(
     val lidarAzimuth: Int = 315,
     val overlayOpacity: Float = 0.75f,
     val metric: Boolean = false,
+    /** Detector and settings from the last find, offered for the next one. */
+    val lastDetector: String = "",
     /** Show public land (USGS PAD-US) on real-world maps. */
     val publicLand: Boolean = true,
     /** Background of the lower map in the anchor editor. */
