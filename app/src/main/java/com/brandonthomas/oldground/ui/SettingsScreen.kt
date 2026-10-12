@@ -95,6 +95,10 @@ fun SettingsScreen(nav: Nav) {
                     GlyphIcon(Glyph.CHEVRON, C.faint, Modifier.size(18.dp))
                 }
             }
+            Text(
+                "OldGround version ${com.brandonthomas.oldground.BuildConfig.VERSION_NAME}",
+                color = C.muted, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().padding(top = 16.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
             Spacer(Modifier.height(80.dp))
         }
     }

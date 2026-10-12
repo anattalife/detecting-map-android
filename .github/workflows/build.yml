@@ -61,8 +61,10 @@ jobs:
         if: success() && github.ref != 'refs/heads/main'
         run: |
           cp app/build/outputs/apk/debug/app-debug.apk oldground.apk
+          # Also under a name with the version, so a phone's browser never reuses an older download.
+          cp oldground.apk "oldground-0.1.${{ github.run_number }}.apk"
           gh release delete preview --cleanup-tag -y || true
-          gh release create preview oldground.apk --target "${{ github.sha }}" --prerelease \
+          gh release create preview oldground.apk "oldground-0.1.${{ github.run_number }}.apk" --target "${{ github.sha }}" --prerelease \
             --title "Preview ${{ github.ref_name }}" --notes "Screenshots and APK from ${{ github.sha }}. Not the main test build."
 
       - name: Enable KVM
