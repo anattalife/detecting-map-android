@@ -153,10 +153,10 @@ fun <T> Segmented(value: T, options: List<Pair<T, String>>, onChange: (T) -> Uni
                     .clip(shape)
                     .background(if (on) C.accent else Color.Transparent)
                     .clickable { onChange(v) }
-                    .padding(vertical = 9.dp, horizontal = 4.dp),
+                    .padding(vertical = 9.dp, horizontal = 2.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(label, color = if (on) Color.White else C.muted, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)
+                Text(label, color = if (on) Color.White else C.muted, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, letterSpacing = (-0.2).sp, softWrap = false)
             }
         }
     }
