@@ -92,7 +92,9 @@ fun AppShell(start: Pair<Tab, List<Screen>>?, startMap: Screen.Hunt?) {
             if (!onMap) {
                 val stack = shell.stacks.getValue(shell.tab)
                 val top = stack.last()
-                Box(Modifier.fillMaxSize().background(C.bg)) {
+                // Leave room for the visit bar, so it never covers a page's own buttons.
+                val barShown = data.visits.any { it.endedAt == null } || data.recording != null
+                Box(Modifier.fillMaxSize().background(C.bg).padding(bottom = if (barShown) 64.dp else 0.dp)) {
                     key(shell.tab, stack.size, top) { Page(nav, top) }
                 }
                 RecordingBar(nav, Modifier.align(Alignment.BottomCenter).padding(horizontal = 10.dp, vertical = 10.dp))

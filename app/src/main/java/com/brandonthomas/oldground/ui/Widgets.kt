@@ -129,13 +129,13 @@ fun Pill(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, kind
         modifier
             .then(if (kind == "plain" || kind == "dark") Modifier.shadow(3.dp, shape, ambientColor = Color(0x3314201D), spotColor = Color(0x3314201D)) else Modifier)
             .clip(shape)
-            .background(bg)
-            .then(if (!enabled) Modifier.alpha(0.45f) else Modifier)
+            // Dimmed with the colour, not a layer: an alpha layer here sometimes drew the button blank.
+            .background(if (enabled) bg else bg.copy(alpha = bg.alpha * 0.45f))
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = if (small) 12.dp else 16.dp, vertical = if (small) 9.dp else 11.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = fg, fontSize = if (small) 13.sp else 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1)
+        Text(label, color = if (enabled) fg else fg.copy(alpha = 0.7f), fontSize = if (small) 13.sp else 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1)
     }
 }
 
