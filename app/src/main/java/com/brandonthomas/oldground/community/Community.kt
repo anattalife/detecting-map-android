@@ -270,11 +270,22 @@ object Community {
         clearSession()
     }
 
-    /** Deletes the account and everything it posted. */
+    /** Deletes the account and everything it posted, photos included. */
     suspend fun deleteAccount() {
         if (demo) return
+        myId?.let { me ->
+            runCatching {
+                val body = buildJsonObject { put("prefix", me); put("limit", 1000) }.toString()
+                val list = json.parseToJsonElement(call("POST", "/storage/v1/object/list/post-photos", body))
+                deletePhotos((list as kotlinx.serialization.json.JsonArray).map { "$me/" + it.jsonObject["name"]!!.jsonPrimitive.content })
+            }
+        }
         call("POST", "/rest/v1/rpc/delete_my_account", "{}")
         clearSession()
+    }
+
+    private suspend fun deletePhotos(paths: List<String>) {
+        for (p in paths) runCatching { call("DELETE", "/storage/v1/object/post-photos/$p") }
     }
 
     // ---------- reading ----------
@@ -356,7 +367,12 @@ object Community {
         call("POST", "/rest/v1/blocks", buildJsonObject { put("blocker_id", me); put("blocked_id", userId) }.toString(), prefer = "resolution=ignore-duplicates")
     }
 
-    suspend fun deletePost(id: String) { if (!demo) call("DELETE", "/rest/v1/posts?id=eq.$id") }
+    suspend fun deletePost(id: String) {
+        if (demo) return
+        val photos = runCatching { post(id)?.photos }.getOrNull().orEmpty()
+        call("DELETE", "/rest/v1/posts?id=eq.$id")
+        deletePhotos(photos)
+    }
     suspend fun deleteComment(id: String) { if (!demo) call("DELETE", "/rest/v1/comments?id=eq.$id") }
 
     /** Staff only: take a post down or put it back. */
