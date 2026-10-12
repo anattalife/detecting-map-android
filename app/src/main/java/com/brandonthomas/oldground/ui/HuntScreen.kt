@@ -294,6 +294,7 @@ fun HuntScreen(
             "oldmaps" -> oldMapPicking = true
             "modes" -> modePicking = true
             "search" -> searching = true
+            "place" -> pinMode = true
             "drawdemo" -> {
                 // Four corners as if tapped, on open ground next to the seeded sites.
                 val c = LngLat(-82.99080, 39.96060)
@@ -321,6 +322,14 @@ fun HuntScreen(
             land != null -> landInfo = PublicLand.describe(land)
         }
     }
+    /** Press and hold: drop a find right there (not while outlining a site). */
+    fun onLongAt(scan: ScanFrame?): (LngLat) -> Unit = { at ->
+        val geo = if (scan != null) scan.toGeo(at) else at
+        if (geo != null && drawing == null) {
+            pinMode = false
+            draft = PinDraft(geo, "", com.brandonthomas.oldground.data.PinKind.FIND, "", null)
+        }
+    }
     fun rememberCam(c: Cam, scan: ScanFrame?) {
         camMemory[0] = if (scan == null) c else scan.toGeo(c.center)?.let { g -> Cam(g, c.zoom - scan.zoomShift(g), 0.0) } ?: camMemory[0]
     }
@@ -346,6 +355,7 @@ fun HuntScreen(
                     LiveMap("main", m, null, live)
                     SideEffect {
                         m.onTap = onTapAt(null)
+                        m.onLongTap = onLongAt(null)
                         m.onMove = { c, user -> rememberCam(c, null); if (user) { follow = false; userTookOver[0] = true } }
                     }
                     MapBox(m, Modifier.fillMaxSize())
@@ -387,6 +397,7 @@ fun HuntScreen(
                     LiveMap("upper", upper, null, live)
                     SideEffect {
                         lower.onTap = onTapAt(null)
+                        lower.onLongTap = onLongAt(null)
                         lower.onMove = { c, user ->
                             upper.setCamera(c.center, c.zoom, c.bearing)
                             rememberCam(c, null)
@@ -465,6 +476,7 @@ fun HuntScreen(
                                 val (m, scan) = pair
                                 val otherSide = if (side == "top") "bottom" else "top"
                                 m.onTap = onTapAt(scan)
+                                m.onLongTap = onLongAt(scan)
                                 m.onMove = { c, user ->
                                     if (user) {
                                         leader[0] = side
@@ -508,6 +520,7 @@ fun HuntScreen(
                         LiveMap("main", m, scan, live)
                         SideEffect {
                             m.onTap = onTapAt(scan)
+                            m.onLongTap = onLongAt(scan)
                             m.onMove = { c, user -> rememberCam(c, scan); if (user) follow = false }
                         }
                         MapBox(m, Modifier.fillMaxSize())
@@ -586,7 +599,7 @@ fun HuntScreen(
             savedNote?.let { Toast(it, color = C.accent) }
             if (pinMode) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Toast("Tap where you found it", color = C.accent)
-                Pill("Pin my spot", {
+                Pill("My spot", {
                     pinMode = false
                     val f = LocationHub.fix.value
                     if (f == null) message = "No GPS fix yet" to "Wait for the blue dot, or tap the map where you want the pin."
@@ -621,14 +634,8 @@ fun HuntScreen(
             modifier = Modifier.align(Alignment.BottomCenter),
         ) else MapControls(
             settings, follow, pinMode, recordingSince, fix, data.pins, data.sites,
-            onFind = {
-                val f = LocationHub.fix.value
-                when {
-                    pinMode -> pinMode = false
-                    f != null -> draft = PinDraft(f.geo, "", com.brandonthomas.oldground.data.PinKind.FIND, "", null)
-                    else -> pinMode = true
-                }
-            },
+            // + Find: tap where you found it, or use your GPS spot.
+            onFind = { pinMode = !pinMode },
             onOpenPin = { p -> cardPin = p.id },
             onOpenSite = { s -> nav.go(Screen.Site(s.id)) },
             guided = guideTo?.let { id -> data.pins.firstOrNull { it.id == id } },
@@ -924,7 +931,7 @@ private fun MapControls(
             Column(Modifier.weight(1f)) {
                 val top = when {
                     fix == null -> "Finding your location…"
-                    nearest == null -> "No finds yet. Tap + Find when you dig one."
+                    nearest == null -> "No finds yet. Tap + Find, or hold a finger on the map."
                     else -> {
                         val d = Mercator.formatDistance(Mercator.distanceMeters(fix.geo, nearest.geo), settings.metric)
                         val dir = Mercator.compass(Mercator.bearing(fix.geo, nearest.geo))

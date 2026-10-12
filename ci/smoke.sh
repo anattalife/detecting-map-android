@@ -67,6 +67,7 @@ shot DRAW --es openMap none --es mode OVERLAY --es draw new --es debug drawdemo
 shot MAPSITE --es openMap none --es mode OVERLAY --es site s1 --es debug none
 shot OLDPICK --es openMap ci1 --es mode OVERLAY --es debug oldmaps
 shot MODES --es openMap ci1 --es mode OVERLAY --es debug modes
+shot PLACE --es openMap none --es mode OVERLAY --es site s1 --es debug place
 shot SEARCH --es openMap none --es mode OVERLAY --es debug search
 shot RECORDING --es openMap none --es mode OVERLAY --es site s1 --es startVisit 1 --es debug none
 shot SITESREC --es screen sites

@@ -66,6 +66,8 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
     var onIdle: ((Cam, Boolean) -> Unit)? = null
     /** A tap: where, the pin/anchor id hit (if any), and the public land hit (if any). */
     var onTap: ((LngLat, String?, Map<String, String>?) -> Unit)? = null
+    /** Press and hold on the map. */
+    var onLongTap: ((LngLat) -> Unit)? = null
     /** Called whenever the map stops moving (several listeners allowed). */
     val idleListeners = ArrayList<() -> Unit>()
     var onReady: ((OgMap) -> Unit)? = null
@@ -97,6 +99,10 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
                 onIdle?.invoke(cam(), userGesture)
                 userGesture = false
                 for (l in idleListeners.toList()) l()
+            }
+            m.addOnMapLongClickListener { ll ->
+                onLongTap?.invoke(LngLat(ll.longitude, ll.latitude))
+                onLongTap != null
             }
             m.addOnMapClickListener { ll ->
                 val p = m.projection.toScreenLocation(ll)
@@ -389,7 +395,7 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
     fun onPause() = view.onPause()
     fun onStop() = view.onStop()
     fun onDestroy() {
-        onMove = null; onIdle = null; onTap = null; onReady = null
+        onMove = null; onIdle = null; onTap = null; onLongTap = null; onReady = null
         idleListeners.clear()
         view.onDestroy()
     }
