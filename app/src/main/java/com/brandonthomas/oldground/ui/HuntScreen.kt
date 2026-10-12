@@ -598,7 +598,7 @@ fun HuntScreen(
             download?.let { Toast("Saving area offline… $it%") }
             savedNote?.let { Toast(it, color = C.accent) }
             if (pinMode) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Toast("Tap where you found it", color = C.accent)
+                Toast("Tap the spot on the map", color = C.accent)
                 Pill("My spot", {
                     pinMode = false
                     val f = LocationHub.fix.value
@@ -905,16 +905,16 @@ private fun MapControls(
             }
             Row(
                 Modifier.height(46.dp).shadow(5.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50)).background(if (pinMode) C.panel else C.accent)
-                    .clickable(onClickLabel = if (pinMode) "Cancel" else "Log a find", onClick = onFind).padding(horizontal = 16.dp),
+                    .clickable(onClickLabel = if (pinMode) "Cancel" else "Add a pin", onClick = onFind).padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 if (!pinMode) GlyphIcon(Glyph.PLUS, Color.White, Modifier.size(16.dp))
-                Text(if (pinMode) "Cancel" else "Find", color = if (pinMode) C.ink else Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                Text(if (pinMode) "Cancel" else "Add pin", color = if (pinMode) C.ink else Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
-        // The slim card: nearest (or guided) find, the site you're in, GPS accuracy.
-        Row(
+        // Only while guiding to a find: how far and which way.
+        if (guided != null) Row(
             Modifier.fillMaxWidth().height(58.dp).card(radius = 16, elevation = 5)
                 .then(if (nearest != null) Modifier.clickable { onOpenPin(nearest) } else Modifier)
                 .padding(horizontal = 10.dp),
