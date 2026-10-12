@@ -103,7 +103,7 @@ object Community {
     const val URL_BASE = "https://kxppiixlbnoytxnkipvh.supabase.co"
     private const val KEY = "sb_publishable_qAm1vsQ-eB9gKAjoMZcEng_eiJ1Lf9c"
     /** Where the website shows a post, once it exists (blank: share text only). */
-    const val SITE = ""
+    const val SITE = "https://oldgroundapp.com"
 
     val REPORT_REASONS = listOf("Spam or advertising", "Not about metal detecting", "Shows a private location", "Rude or offensive", "Stolen photo or video", "Something else")
     val STATES = listOf(
