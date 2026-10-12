@@ -230,12 +230,12 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
                     }
                     MapBox(m, Modifier.fillMaxSize())
                     FlowRow(
-                        Modifier.statusBarsPadding().padding(top = 64.dp, start = 12.dp, end = 12.dp),
+                        Modifier.statusBarsPadding().padding(top = 60.dp, start = 8.dp, end = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         LayerTag(top.label, { picking = Slot.OVERLAY_TOP })
-                        Text("over", color = C.ink, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterVertically).clip(RoundedCornerShape(50)).background(Color(0xD9FFFFFF)).padding(horizontal = 8.dp, vertical = 4.dp))
+                        Text("over", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterVertically))
                         LayerTag(bottom.label, { picking = Slot.OVERLAY_BOTTOM })
                     }
                 }
