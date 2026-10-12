@@ -244,7 +244,7 @@ fun HuntScreen(
         if (debug != "drawdemo") return@LaunchedEffect
         kotlinx.coroutines.delay(1500)
         val c = LngLat(-82.99080, 39.96060)
-        for ((_, p) in live) p.first.setCamera(c, 17.4)
+        for ((_, p) in live) p.first.setCamera(c, 16.7)
         corners.clear()
         corners.addAll(listOf(LngLat(c.lng - 0.0010, c.lat + 0.0006), LngLat(c.lng + 0.0008, c.lat + 0.0008), LngLat(c.lng + 0.0010, c.lat - 0.0005), LngLat(c.lng - 0.0007, c.lat - 0.0007)))
         siteName = "Hendricks pasture"
@@ -898,9 +898,18 @@ private fun DrawPanel(
                 for (a in SITE_ACCESS) SoftChip(a, a == access) { onAccess(a) }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Pill("Undo corner", onUndo, Modifier.weight(1f), kind = "soft", enabled = cornerCount > 0)
-            Pill(if (editing) "Save outline" else "Save and start exploring", onSave, Modifier.weight(1.4f), kind = "primary", enabled = cornerCount >= 3)
+        Row(Modifier.fillMaxWidth().height(48.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PanelButton("Undo corner", C.soft, C.ink, cornerCount > 0, onUndo, Modifier.weight(1f))
+            PanelButton(if (editing) "Save outline" else "Save and explore", C.accent, Color.White, cornerCount >= 3, onSave, Modifier.weight(1.4f))
         }
     }
+}
+
+@Composable
+private fun PanelButton(label: String, bg: Color, fg: Color, enabled: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    Box(
+        modifier.fillMaxHeight().clip(RoundedCornerShape(24.dp)).background(if (enabled) bg else bg.copy(alpha = 0.45f))
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Text(label, color = if (enabled) fg else fg.copy(alpha = 0.6f), fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1) }
 }

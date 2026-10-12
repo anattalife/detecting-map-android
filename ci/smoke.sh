@@ -13,6 +13,7 @@ adb shell "run-as $P sh -c 'cat > files/oldground/maps/ci1/original.jpg'" < ci/t
 adb shell "run-as $P sh -c 'cat > files/oldground/data.json'" < ci/data.json
 adb shell "run-as $P sh -c 'mkdir -p files/oldground/tracks'"
 adb shell "run-as $P sh -c 'cat > files/oldground/tracks/t1.csv'" < ci/track.csv
+adb shell "run-as $P sh -c 'cat > files/oldground/tracks/t2.csv'" < ci/track2.csv
 adb shell "run-as $P sh -c 'mkdir -p files/oldground/photos'"
 for f in ci/photos/*.jpg; do adb shell "run-as $P sh -c 'cat > files/oldground/photos/ci-$(basename $f)'" < $f; done
 adb shell "run-as $P ls -l files/oldground files/oldground/maps/ci1"

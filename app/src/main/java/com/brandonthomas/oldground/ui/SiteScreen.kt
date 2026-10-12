@@ -107,7 +107,7 @@ fun SiteScreen(nav: Nav, siteId: String, debug: String? = null) {
             if (site.photo != null) PhotoThumb(site.photo, Modifier.fillMaxSize(), px = 1000)
             else Column(Modifier.align(Alignment.Center).padding(top = 30.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 GlyphIcon(Glyph.CAMERA, Color.White, Modifier.size(34.dp))
-                Text("Lay out your finds and take one photo of them all", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 40.dp))
+                Text("Take one photo of all your finds laid out together", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 40.dp))
                 Pill("Add finds photo", { photoMenu = true }, kind = "plain", small = true)
             }
             Box(Modifier.statusBarsPadding().padding(12.dp)) { RoundButton({ nav.back() }, "Back") { GlyphIcon(Glyph.BACK, C.ink) } }

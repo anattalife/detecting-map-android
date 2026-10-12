@@ -113,7 +113,7 @@ private fun SitesTab(nav: Nav, data: AppData, bySite: Map<String?, List<Pin>>, t
                 }
                 Column(Modifier.weight(1f)) {
                     Text("Not in a site", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = C.ink)
-                    Text("${loose.size} finds logged outside any outline", fontSize = 13.sp, color = C.muted)
+                    Text("${loose.size} find${if (loose.size == 1) "" else "s"} logged outside any outline", fontSize = 13.sp, color = C.muted)
                 }
                 GlyphIcon(Glyph.CHEVRON, C.faint, Modifier.size(18.dp))
             }
@@ -126,14 +126,13 @@ private fun SitesTab(nav: Nav, data: AppData, bySite: Map<String?, List<Pin>>, t
 private fun SiteCard(site: Site, finds: List<Pin>, visitCount: Int, lastVisit: String?, fix: Fix?, metric: Boolean, onClick: () -> Unit) {
     val center = Sites.center(site.ring)
     val inside = fix != null && Sites.contains(site.ring, fix.geo)
-    val silver = finds.count { it.material == "Silver" || it.material == "Gold" }
+    val silver = finds.count { it.material == "Silver" }
+    val gold = finds.count { it.material == "Gold" }
+    val best = listOfNotNull(silver.takeIf { it > 0 }?.let { "$it silver" }, gold.takeIf { it > 0 }?.let { "$it gold" }).joinToString(" · ")
     val sub = listOfNotNull(
         "$visitCount visit${if (visitCount == 1) "" else "s"}",
         lastVisit?.let { "last $it" },
-        when {
-            silver > 0 -> "$silver silver & gold"
-            else -> site.access.lowercase()
-        },
+        best.ifEmpty { site.access.lowercase() },
     ).joinToString(" · ")
     Column(Modifier.fillMaxWidth().card(18).clickable(onClick = onClick)) {
         if (site.photo != null) {
