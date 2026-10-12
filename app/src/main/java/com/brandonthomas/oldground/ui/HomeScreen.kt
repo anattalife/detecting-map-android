@@ -22,9 +22,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -133,73 +130,33 @@ fun HomeScreen(nav: Nav) {
         }
     }
 
-    var addOpen by remember { mutableStateOf(false) }
-    // The map you're most likely to hunt next: the newest one that's lined up.
-    val hero = data.maps.firstOrNull { it.aligned }
-    val greeting = when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) {
-        in 4..11 -> "Good morning"
-        in 12..16 -> "Good afternoon"
-        else -> "Good evening"
-    }
-
     Column(Modifier.fillMaxSize().background(C.bg).statusBarsPadding().navigationBarsPadding()) {
-        ScrollColumn(Modifier.padding(horizontal = 18.dp)) {
-            Spacer(Modifier.height(16.dp))
+        ScrollColumn(Modifier.padding(horizontal = 16.dp)) {
+            Spacer(Modifier.height(12.dp))
+            Text("OldGround", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = C.ink)
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Pill("Hunt map", { nav.go(Screen.Hunt(null)) }, Modifier.weight(1f), kind = "primary")
+                Pill("Pins & tracks", { nav.go(Screen.Pins) }, Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(greeting, fontSize = 14.sp, color = C.muted, fontWeight = FontWeight.Medium)
-                    Text("OldGround", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = C.ink, letterSpacing = (-0.5).sp)
-                }
-                RoundButton({ nav.go(Screen.Pins) }, "Pins and tracks") { GlyphIcon(Glyph.PIN, C.ink) }
-            }
-            Spacer(Modifier.height(16.dp))
-
-            // ---- hero: jump straight into a hunt ----
-            Column(Modifier.fillMaxWidth().card(radius = 22, elevation = 6)) {
-                Box(Modifier.fillMaxWidth().height(170.dp).background(C.soft)) {
-                    if (hero != null) MapThumb(hero, Modifier.fillMaxSize())
-                    else Box(Modifier.fillMaxSize().background(C.accentSoft))
-                    Text(
-                        if (hero != null) "Ready to hunt" else "No old map needed",
-                        Modifier.padding(12.dp).clip(RoundedCornerShape(50)).background(Color(0xEBFFFFFF)).padding(horizontal = 10.dp, vertical = 5.dp),
-                        color = C.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                    )
-                }
-                Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(hero?.name ?: "LiDAR, satellite and topo", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = C.ink, maxLines = 1)
-                        val pins = hero?.let { h -> data.pins.count { it.mapId == h.id } }
-                        Text(
-                            if (hero != null) "${hero.anchors.size} anchors · $pins pin${if (pins == 1) "" else "s"}" else "Hunt with today's maps around you",
-                            fontSize = 13.sp, color = C.muted,
-                        )
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Pill("Hunt", { nav.go(Screen.Hunt(hero?.id)) }, kind = "primary")
+                SectionTitle("Old maps", Modifier.weight(1f))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Pill("Photos", { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
+                    Pill("Files", { pickFile.launch(arrayOf("image/*")) })
+                    Pill("Camera", { takePhoto.launch(cameraUri) })
                 }
             }
-            if (hero != null) {
-                Spacer(Modifier.height(10.dp))
-                Pill("Open the map without an old map", { nav.go(Screen.Hunt(null)) }, Modifier.fillMaxWidth(), kind = "tint")
-            }
-
-            // ---- old maps ----
-            Spacer(Modifier.height(22.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Old maps", Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = C.ink)
-                Pill("+ Add map", { addOpen = true }, kind = "tint")
-            }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
             if (data.maps.isEmpty()) {
-                Column(Modifier.fillMaxWidth().card().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Add your first old map", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = C.ink)
+                Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Add your first old map", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = C.ink)
                     Spacer(Modifier.height(6.dp))
                     Text(
                         "Import a scan of a plat map, county atlas or old topo. Then line it up with today's map by placing anchors on spots both maps share: crossroads, churches, creek crossings.",
-                        color = C.muted, fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 520.dp),
+                        color = C.muted, textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 520.dp),
                     )
-                    Spacer(Modifier.height(12.dp))
-                    Pill("Add a map", { addOpen = true }, kind = "primary")
                 }
             }
             for (m in data.maps) {
@@ -209,37 +166,25 @@ fun HomeScreen(nav: Nav) {
                     onOpen = { nav.go(if (m.aligned) Screen.Hunt(m.id) else Screen.Align(m.id)) },
                     onMenu = { menuFor = m },
                 )
-                Spacer(Modifier.height(10.dp))
-            }
-
-            // ---- at a glance ----
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatCard("Offline areas", "${areas.size}", Modifier.weight(1f))
-                StatCard("Pins", "${data.pins.size}", Modifier.weight(1f), onClick = { nav.go(Screen.Pins) })
+                Spacer(Modifier.height(8.dp))
             }
             if (areas.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
-                Column(Modifier.fillMaxWidth().card()) {
-                    areas.forEachIndexed { i, a ->
-                        if (i > 0) Divider()
-                        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(a.name, Modifier.weight(1f), color = C.ink, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-                            Pill("Delete", { OfflineAreas.delete(ctx, a.name) { areasTick++ } }, kind = "soft")
-                        }
+                SectionTitle("Offline areas")
+                Spacer(Modifier.height(8.dp))
+                for (a in areas) {
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(C.panel).padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(a.name, Modifier.weight(1f), color = C.ink, maxLines = 1)
+                        Pill("Delete", { OfflineAreas.delete(ctx, a.name) { areasTick++ } })
                     }
+                    Spacer(Modifier.height(6.dp))
                 }
             }
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(24.dp))
         }
-    }
-
-    if (addOpen) {
-        ChoiceSheet("Add an old map", listOf(
-            Choice("From Photos") { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-            Choice("From Files") { pickFile.launch(arrayOf("image/*")) },
-            Choice("Take a photo of a paper map") { takePhoto.launch(cameraUri) },
-        )) { addOpen = false }
     }
 
     pending?.let { (uri, name) ->
@@ -288,55 +233,42 @@ fun HomeScreen(nav: Nav) {
 
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(text, modifier, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = C.ink)
+    Text(text.uppercase(), modifier, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp, color = C.muted)
 }
 
 @Composable
-private fun StatCard(label: String, value: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
-    Column(modifier.card().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(14.dp)) {
-        Text(label, fontSize = 13.sp, color = C.muted)
-        Text(value, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = C.ink)
-    }
-}
-
-/** A small picture of an old map's scan. */
-@Composable
-fun MapThumb(m: OldMap, modifier: Modifier = Modifier) {
+private fun MapRow(m: OldMap, building: Float?, onOpen: () -> Unit, onMenu: () -> Unit) {
     val thumb by produceState<ImageBitmap?>(null, m.id, m.image) {
         value = withContext(Dispatchers.IO) {
             runCatching {
                 val f = Repo.mapFile(m.id, m.image)
                 var sample = 1
-                while (maxOf(m.width, m.height) / (sample * 2) >= 480) sample *= 2
+                while (maxOf(m.width, m.height) / (sample * 2) >= 160) sample *= 2
                 BitmapFactory.decodeFile(f.path, BitmapFactory.Options().apply { inSampleSize = sample })?.asImageBitmap()
             }.getOrNull()
         }
     }
-    Box(modifier.background(C.line)) {
-        thumb?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
-    }
-}
-
-@Composable
-private fun MapRow(m: OldMap, building: Float?, onOpen: () -> Unit, onMenu: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().card().clickable(onClick = onOpen).padding(10.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.panel).border(1.dp, C.line, RoundedCornerShape(16.dp))
+            .clickable(onClick = onOpen).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        MapThumb(m, Modifier.size(58.dp).clip(RoundedCornerShape(12.dp)))
+        Box(Modifier.size(72.dp).clip(RoundedCornerShape(6.dp)).background(C.line)) {
+            thumb?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+        }
         Column(Modifier.weight(1f)) {
-            Text(m.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.ink, maxLines = 1)
+            Text(m.name, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = C.ink, maxLines = 1)
+            Text("${m.width}×${m.height} px · ${m.anchors.size} anchor${if (m.anchors.size == 1) "" else "s"}", color = C.muted, fontSize = 13.sp)
+            Spacer(Modifier.height(4.dp))
             val (label, color) = when {
                 building != null -> "Preparing ${(building * 100).toInt()}%" to C.muted
-                m.aligned -> "Aligned · ${m.anchors.size} anchors" to C.muted
-                else -> "Add anchors to line it up" to C.check
+                m.aligned -> "Aligned" to C.green
+                else -> "Needs anchors" to C.check
             }
-            Text(label, color = color, fontSize = 13.sp, fontWeight = if (m.aligned || building != null) FontWeight.Normal else FontWeight.SemiBold)
+            Text(label, color = androidx.compose.ui.graphics.Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(color).padding(horizontal = 8.dp, vertical = 2.dp))
         }
-        Box(
-            Modifier.size(40.dp).clip(CircleShape).clickable(onClickLabel = "Map options", onClick = onMenu),
-            contentAlignment = Alignment.Center,
-        ) { GlyphIcon(Glyph.MORE, C.faint) }
+        Text("•••", color = C.muted, fontSize = 18.sp, modifier = Modifier.clickable(onClick = onMenu).padding(8.dp))
     }
 }

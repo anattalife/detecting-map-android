@@ -97,8 +97,8 @@ fun PinsScreen(nav: Nav) {
 
     Column(Modifier.fillMaxSize().background(C.bg).statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            RoundButton({ nav.back() }, "Back") { GlyphIcon(Glyph.BACK, C.ink) }
-            Text("Pins & tracks", Modifier.weight(1f).padding(horizontal = 12.dp), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = C.ink)
+            Pill("‹ Back", { nav.back() })
+            Text("Pins & tracks", Modifier.weight(1f).padding(horizontal = 12.dp), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = C.ink)
             Pill("Export GPX", { exportGpx() }, kind = "primary")
         }
         ScrollColumn(Modifier.padding(horizontal = 16.dp)) {
@@ -127,7 +127,8 @@ fun PinsScreen(nav: Nav) {
                 val dist = here?.let { Mercator.distanceMeters(it, p.geo) }
                 val dir = here?.let { Mercator.compass(Mercator.bearing(it, p.geo)) }
                 Row(
-                    Modifier.fillMaxWidth().card()
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.panel)
+                        .border(1.dp, C.line, RoundedCornerShape(12.dp))
                         .clickable { nav.go(Screen.Hunt(p.mapId?.takeIf { id -> Repo.map(id)?.aligned == true }, p.id)) }
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -161,7 +162,8 @@ fun PinsScreen(nav: Nav) {
                 val minutes = if (pts.size >= 2) (pts.last().timeMs - pts.first().timeMs) / 60000 else 0
                 val recording = data.recording == t.id
                 Row(
-                    Modifier.fillMaxWidth().card().padding(12.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.panel)
+                        .border(1.dp, C.line, RoundedCornerShape(12.dp)).padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
@@ -171,7 +173,7 @@ fun PinsScreen(nav: Nav) {
                             color = C.muted, fontSize = 13.sp,
                         )
                     }
-                    Pill("Delete", { deletingTrack = t }, kind = "soft", enabled = !recording)
+                    Pill("Delete", { deletingTrack = t }, enabled = !recording)
                 }
                 Spacer(Modifier.height(6.dp))
             }
@@ -190,14 +192,14 @@ fun PinsScreen(nav: Nav) {
 private fun FilterChip(label: String, color: String?, on: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.clip(RoundedCornerShape(20.dp))
-            .background(if (on) C.accent else C.panel)
-            .border(1.dp, if (on) C.accent else C.line, RoundedCornerShape(20.dp))
+            .background(if (on) C.ink else C.panel)
+            .border(1.dp, if (on) C.ink else C.line, RoundedCornerShape(20.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         if (color != null) Box(Modifier.size(10.dp).clip(CircleShape).background(hexColor(color)))
-        Text(label, fontSize = 13.sp, color = if (on) Color.White else C.ink, fontWeight = FontWeight.Bold)
+        Text(label, fontSize = 13.sp, color = if (on) Color.White else C.ink, fontWeight = FontWeight.SemiBold)
     }
 }

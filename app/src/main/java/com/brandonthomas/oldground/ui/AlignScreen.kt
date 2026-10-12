@@ -200,10 +200,10 @@ fun AlignScreen(nav: Nav, mapId: String) {
     }
 
     Column(Modifier.fillMaxSize().background(C.bg).statusBarsPadding().navigationBarsPadding()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            RoundButton({ nav.back() }, "Back") { GlyphIcon(Glyph.BACK, C.ink) }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("‹", fontSize = 30.sp, color = C.ink, modifier = Modifier.clickable { nav.back() }.padding(horizontal = 10.dp))
             Text(map.name, Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = C.ink, maxLines = 1)
-            Pill("Done", { done() }, kind = "primary")
+            Text("Done", color = C.accent, fontWeight = FontWeight.Bold, fontSize = 17.sp, modifier = Modifier.clickable { done() }.padding(10.dp))
         }
 
         // ---- old map ----
@@ -211,7 +211,7 @@ fun AlignScreen(nav: Nav, mapId: String) {
             MapBox(top, Modifier.fillMaxSize())
             Crosshair(C.bad, Modifier.align(Alignment.Center))
             val sp = progress["scan:$mapId"]
-            Toast(if (sp != null) "Old map · sharpening ${(sp * 100).toInt()}%" else "Old map", Modifier.align(Alignment.TopStart).padding(10.dp))
+            Toast(if (sp != null) "OLD MAP · SHARPENING ${(sp * 100).toInt()}%" else "OLD MAP", Modifier.align(Alignment.TopStart).padding(8.dp))
         }
 
         // ---- tools ----

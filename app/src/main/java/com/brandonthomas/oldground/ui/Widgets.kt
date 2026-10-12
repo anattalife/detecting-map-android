@@ -15,18 +15,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -101,62 +89,50 @@ fun MapBox(m: OgMap, modifier: Modifier = Modifier) {
 
 // ---------- controls ----------
 
-/** A white card with a soft shadow (the "Clean Trail" surface). */
-fun Modifier.card(radius: Int = 16, elevation: Int = 3): Modifier =
-    this.shadow(elevation.dp, RoundedCornerShape(radius.dp), ambientColor = Color(0x3314201D), spotColor = Color(0x3314201D))
-        .clip(RoundedCornerShape(radius.dp))
-        .background(C.panel)
-
-/**
- * A rounded button. Kinds: primary (teal), danger, plain (white card), soft (light grey,
- * for use inside white panels), dark (white, floating over a map), green (= primary).
- */
 @Composable
 fun Pill(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, kind: String = "plain", enabled: Boolean = true) {
-    val (bg, fg) = when (kind) {
-        "primary", "green" -> C.accent to Color.White
-        "danger" -> C.bad to Color.White
-        "soft" -> C.soft to C.ink
-        "tint" -> C.accentSoft to C.accent
-        else -> C.panel to C.ink
+    val bg = when (kind) {
+        "primary" -> C.accent
+        "danger" -> C.bad
+        "dark" -> C.scrim
+        "green" -> C.green
+        else -> C.panel
     }
-    val shape = RoundedCornerShape(50)
+    val fg = if (kind == "plain") C.ink else Color.White
     Box(
         modifier
-            .then(if (kind == "plain" || kind == "dark") Modifier.shadow(3.dp, shape, ambientColor = Color(0x3314201D), spotColor = Color(0x3314201D)) else Modifier)
-            .clip(shape)
-            .background(bg)
-            .then(if (!enabled) Modifier.alpha(0.45f) else Modifier)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (enabled) bg else bg.copy(alpha = 0.45f))
+            .then(if (kind == "plain") Modifier.border(1.dp, C.line, RoundedCornerShape(10.dp)) else Modifier)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 11.dp),
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = fg, fontSize = 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Text(label, color = fg, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
     }
 }
 
 @Composable
 fun <T> Segmented(value: T, options: List<Pair<T, String>>, onChange: (T) -> Unit, modifier: Modifier = Modifier, dark: Boolean = false) {
-    val shape = RoundedCornerShape(50)
     Row(
         modifier
-            .then(if (dark) Modifier.shadow(4.dp, shape, ambientColor = Color(0x4014201D), spotColor = Color(0x4014201D)) else Modifier)
-            .clip(shape)
-            .background(if (dark) C.panel else C.soft)
-            .padding(4.dp),
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (dark) Color(0x73000000) else C.panel)
+            .then(if (dark) Modifier else Modifier.border(1.dp, C.line, RoundedCornerShape(10.dp)))
+            .padding(2.dp),
     ) {
         for ((v, label) in options) {
             val on = v == value
             Box(
                 Modifier
                     .weight(1f)
-                    .clip(shape)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(if (on) C.accent else Color.Transparent)
                     .clickable { onChange(v) }
-                    .padding(vertical = 9.dp, horizontal = 4.dp),
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(label, color = if (on) Color.White else C.muted, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)
+                Text(label, color = if (on || dark) Color.White else C.ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
             }
         }
     }
@@ -165,95 +141,13 @@ fun <T> Segmented(value: T, options: List<Pair<T, String>>, onChange: (T) -> Uni
 /** A label on a map that opens a layer picker. */
 @Composable
 fun LayerTag(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(50)
     Box(
         modifier
-            .shadow(3.dp, shape, ambientColor = Color(0x4014201D), spotColor = Color(0x4014201D))
-            .clip(shape)
-            .background(C.panel)
+            .clip(RoundedCornerShape(10.dp))
+            .background(C.scrim)
             .clickable(onClick = onClick)
-            .padding(horizontal = 13.dp, vertical = 8.dp),
-    ) { Text("$text ▾", color = C.ink, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
-}
-
-/** A round white button floating over a map. */
-@Composable
-fun RoundButton(onClick: () -> Unit, label: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Box(
-        modifier
-            .size(46.dp)
-            .shadow(4.dp, CircleShape, ambientColor = Color(0x4014201D), spotColor = Color(0x4014201D))
-            .clip(CircleShape)
-            .background(C.panel)
-            .clickable(onClickLabel = label, onClick = onClick)
-            .semantics { contentDescription = label },
-        contentAlignment = Alignment.Center,
-    ) { content() }
-}
-
-/** Small line icons drawn in code (no icon library needed). */
-enum class Glyph { BACK, LAYERS, PIN, RECORD, STOP, FOLLOW, MORE, CHEVRON, PLUS, LIST }
-
-@Composable
-fun GlyphIcon(g: Glyph, color: Color, modifier: Modifier = Modifier.size(22.dp)) {
-    Canvas(modifier) {
-        val w = size.width
-        val h = size.height
-        val sw = w * 0.08f
-        val stroke = Stroke(sw, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        when (g) {
-            Glyph.BACK -> drawPath(Path().apply { moveTo(w * 0.62f, h * 0.18f); lineTo(w * 0.32f, h * 0.5f); lineTo(w * 0.62f, h * 0.82f) }, color, style = stroke)
-            Glyph.CHEVRON -> drawPath(Path().apply { moveTo(w * 0.38f, h * 0.2f); lineTo(w * 0.66f, h * 0.5f); lineTo(w * 0.38f, h * 0.8f) }, color, style = stroke)
-            Glyph.LAYERS -> {
-                drawPath(Path().apply { moveTo(w * 0.5f, h * 0.12f); lineTo(w * 0.92f, h * 0.33f); lineTo(w * 0.5f, h * 0.54f); lineTo(w * 0.08f, h * 0.33f); close() }, color, style = stroke)
-                drawPath(Path().apply { moveTo(w * 0.08f, h * 0.5f); lineTo(w * 0.5f, h * 0.71f); lineTo(w * 0.92f, h * 0.5f) }, color, style = stroke)
-                drawPath(Path().apply { moveTo(w * 0.08f, h * 0.67f); lineTo(w * 0.5f, h * 0.88f); lineTo(w * 0.92f, h * 0.67f) }, color, style = stroke)
-            }
-            Glyph.PIN -> {
-                drawPath(Path().apply {
-                    moveTo(w * 0.5f, h * 0.92f)
-                    cubicTo(w * 0.5f, h * 0.92f, w * 0.8f, h * 0.58f, w * 0.8f, h * 0.38f)
-                    cubicTo(w * 0.8f, h * 0.2f, w * 0.66f, h * 0.08f, w * 0.5f, h * 0.08f)
-                    cubicTo(w * 0.34f, h * 0.08f, w * 0.2f, h * 0.2f, w * 0.2f, h * 0.38f)
-                    cubicTo(w * 0.2f, h * 0.58f, w * 0.5f, h * 0.92f, w * 0.5f, h * 0.92f)
-                    close()
-                }, color, style = stroke)
-                drawCircle(color, w * 0.1f, Offset(w * 0.5f, h * 0.37f))
-            }
-            Glyph.RECORD -> drawCircle(color, w * 0.27f, Offset(w / 2, h / 2))
-            Glyph.STOP -> drawRoundRect(color, Offset(w * 0.28f, h * 0.28f), Size(w * 0.44f, h * 0.44f), CornerRadius(w * 0.06f))
-            Glyph.FOLLOW -> drawPath(Path().apply { moveTo(w * 0.12f, h * 0.46f); lineTo(w * 0.88f, h * 0.12f); lineTo(w * 0.54f, h * 0.88f); lineTo(w * 0.46f, h * 0.54f); close() }, color)
-            Glyph.MORE -> for (i in 0..2) drawCircle(color, w * 0.08f, Offset(w * (0.22f + i * 0.28f), h / 2))
-            Glyph.PLUS -> {
-                drawLine(color, Offset(w * 0.5f, h * 0.18f), Offset(w * 0.5f, h * 0.82f), sw, StrokeCap.Round)
-                drawLine(color, Offset(w * 0.18f, h * 0.5f), Offset(w * 0.82f, h * 0.5f), sw, StrokeCap.Round)
-            }
-            Glyph.LIST -> for (i in 0..2) drawLine(color, Offset(w * 0.18f, h * (0.28f + i * 0.22f)), Offset(w * 0.82f, h * (0.28f + i * 0.22f)), sw, StrokeCap.Round)
-        }
-    }
-}
-
-/** A square-ish tool button with an icon over a label (hunt map panel). */
-@Composable
-fun ToolButton(label: String, glyph: Glyph, onClick: () -> Unit, modifier: Modifier = Modifier, kind: String = "soft") {
-    val (bg, fg) = when (kind) {
-        "primary" -> C.accent to Color.White
-        "danger" -> C.badSoft to C.badInk
-        else -> C.soft to C.ink
-    }
-    Column(
-        modifier
-            .height(64.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(bg)
-            .clickable(onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        GlyphIcon(glyph, if (kind == "danger") C.bad else fg)
-        Spacer(Modifier.height(4.dp))
-        Text(label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-    }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) { Text("$text ▾", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp) }
 }
 
 @Composable
@@ -268,16 +162,9 @@ fun Crosshair(color: Color, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun Toast(text: String, modifier: Modifier = Modifier, color: Color = C.panel) {
-    val shape = RoundedCornerShape(50)
-    Box(
-        modifier
-            .shadow(3.dp, shape, ambientColor = Color(0x4014201D), spotColor = Color(0x4014201D))
-            .clip(shape)
-            .background(color)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-    ) {
-        Text(text, color = if (color == C.panel) C.ink else Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+fun Toast(text: String, modifier: Modifier = Modifier, color: Color = C.scrim) {
+    Box(modifier.clip(RoundedCornerShape(50)).background(color).padding(horizontal = 14.dp, vertical = 8.dp)) {
+        Text(text, color = Color.White, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -289,15 +176,15 @@ data class Choice(val text: String, val selected: Boolean = false, val danger: B
 @Composable
 fun ChoiceSheet(title: String, choices: List<Choice>, onDismiss: () -> Unit) {
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state, containerColor = C.panel, shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state, containerColor = C.panel) {
         Column(Modifier.padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 12.dp)) {
-            Text(title, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, color = C.ink, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+            Text(title, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = C.ink, modifier = Modifier.padding(bottom = 8.dp))
             for (c in choices) {
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (c.selected) C.accentSoft else Color.Transparent).clickable { onDismiss(); c.onPick() }.padding(vertical = 14.dp, horizontal = 12.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onDismiss(); c.onPick() }.padding(vertical = 14.dp, horizontal = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(c.text, fontSize = 17.sp, color = if (c.danger) C.bad else if (c.selected) C.accent else C.ink, fontWeight = if (c.selected) FontWeight.Bold else FontWeight.Medium)
+                    Text(c.text, fontSize = 17.sp, color = if (c.danger) C.bad else C.ink, fontWeight = if (c.selected) FontWeight.ExtraBold else FontWeight.Normal)
                     if (c.selected) Text("✓", color = C.accent, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
                 }
             }
@@ -348,4 +235,3 @@ fun ScrollColumn(modifier: Modifier = Modifier, content: @Composable () -> Unit)
 
 @Composable
 fun Divider() = HorizontalDivider(color = C.line)
-

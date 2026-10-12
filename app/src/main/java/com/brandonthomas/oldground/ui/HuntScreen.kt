@@ -50,7 +50,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -298,14 +297,14 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
                         ) {
                             Box(Modifier.width(3.dp).fillMaxHeight().background(Color.White))
                             Box(
-                                Modifier.size(44.dp).shadow(4.dp, CircleShape).clip(CircleShape).background(C.panel),
+                                Modifier.size(40.dp).clip(CircleShape).background(C.accent),
                                 contentAlignment = Alignment.Center,
-                            ) { Text("‹ ›", color = C.accent, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp) }
+                            ) { Text("‹ ›", color = Color.White, fontWeight = FontWeight.ExtraBold) }
                         }
                     }
-                    Box(Modifier.fillMaxWidth().statusBarsPadding().padding(top = 64.dp, start = 12.dp, end = 12.dp)) {
-                        LayerTag(left.label, { picking = Slot.SWIPE_LEFT }, Modifier.align(Alignment.TopStart))
-                        LayerTag(right.label, { picking = Slot.SWIPE_RIGHT }, Modifier.align(Alignment.TopEnd))
+                    Box(Modifier.fillMaxSize().navigationBarsPadding().padding(bottom = 150.dp, start = 8.dp, end = 8.dp)) {
+                        LayerTag(left.label, { picking = Slot.SWIPE_LEFT }, Modifier.align(Alignment.BottomStart))
+                        LayerTag(right.label, { picking = Slot.SWIPE_RIGHT }, Modifier.align(Alignment.BottomEnd))
                     }
                 }
 
@@ -427,11 +426,14 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
 
         // ---- top bar ----
         Row(
-            Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 6.dp),
+            Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            RoundButton({ nav.back() }, "Back") { GlyphIcon(Glyph.BACK, C.ink) }
+            Box(
+                Modifier.size(40.dp).clip(CircleShape).background(C.scrim).clickable { nav.back() },
+                contentAlignment = Alignment.Center,
+            ) { Text("‹", color = Color.White, fontSize = 26.sp) }
             Segmented(mode, Mode.entries.map { it to it.label }, { mode = it }, Modifier.weight(1f), dark = true)
         }
 
@@ -444,25 +446,20 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
         ) {
             if (building != null) Toast("Preparing old map… ${(building * 100).toInt()}%")
             download?.let { Toast("Saving area offline… $it%") }
-            if (pinMode) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Toast("Tap the map to place a pin", color = C.accent)
-                Pill("Pin my spot", {
-                    pinMode = false
-                    val f = LocationHub.fix.value
-                    if (f == null) message = "No GPS fix yet" to "Wait for the blue dot, or tap the map where you want the pin."
-                    else draft = PinDraft(f.geo, "", com.brandonthomas.oldground.data.PinKind.HOMESITE, "", null)
-                })
-            }
+            if (pinMode) Toast("Tap the map to place a pin", color = C.accent)
         }
 
         // ---- bottom controls ----
-        val recordingSince = data.recording?.let { r -> data.tracks.firstOrNull { it.id == r }?.startedAt }
-        BottomPanel(
-            mode, settings, follow, pinMode, recordingSince, fix, data.pins,
+        BottomControls(
+            mode, settings, follow, pinMode, data.recording != null, fix,
             topLabel = slot(Slot.OVERLAY_TOP).label,
-            onLayers = { moreOpen = true },
+            onMore = { moreOpen = true },
             onPin = { pinMode = !pinMode },
-            onOpenPin = { p -> draft = PinDraft(p.geo, p.name, p.kind, p.note, p.id) },
+            onPinHere = {
+                val f = LocationHub.fix.value
+                if (f == null) message = "No GPS fix yet" to "Wait for the blue dot, or tap Pin and then tap the map."
+                else draft = PinDraft(f.geo, "", com.brandonthomas.oldground.data.PinKind.HOMESITE, "", null)
+            },
             onLocate = {
                 val f = LocationHub.fix.value
                 if (!follow && f != null) for ((name, p) in live) {
@@ -613,99 +610,44 @@ private fun MapDataSync(m: OgMap, scan: ScanFrame?, pins: List<Pin>, tracks: Map
 }
 
 @Composable
-private fun BottomPanel(
-    mode: Mode, settings: Settings, follow: Boolean, pinMode: Boolean, recordingSince: Long?, fix: Fix?, pins: List<Pin>, topLabel: String,
-    onLayers: () -> Unit, onPin: () -> Unit, onOpenPin: (Pin) -> Unit, onLocate: () -> Unit, modifier: Modifier,
+private fun BottomControls(
+    mode: Mode, settings: Settings, follow: Boolean, pinMode: Boolean, recording: Boolean, fix: Fix?, topLabel: String,
+    onMore: () -> Unit, onPin: () -> Unit, onPinHere: () -> Unit, onLocate: () -> Unit, modifier: Modifier,
 ) {
     val ctx = LocalContext.current
     val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { TrackService.start(ctx) }
-    var collapsed by rememberSaveable { mutableStateOf(false) }
-    // Elapsed recording time, refreshed every 20 seconds.
-    var now by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(recordingSince) {
-        while (recordingSince != null) {
-            now = System.currentTimeMillis()
-            kotlinx.coroutines.delay(20_000)
-        }
-    }
-    val elapsed = recordingSince?.let {
-        val mins = ((now - it) / 60_000).coerceAtLeast(0)
-        "${mins / 60}:${"%02d".format(mins % 60)}"
-    }
-    val nearest = fix?.let { f -> pins.minByOrNull { Mercator.distanceMeters(f.geo, it.geo) } }
-    val shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
-    Column(
-        modifier.fillMaxWidth()
-            .shadow(16.dp, shape, ambientColor = Color(0x5514201D), spotColor = Color(0x5514201D))
-            .clip(shape)
-            .background(C.panel)
-            .navigationBarsPadding()
-            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        // Handle: tap or drag down to shrink the panel to just the buttons.
-        Box(
-            Modifier.fillMaxWidth().height(22.dp)
-                .clickable(onClickLabel = if (collapsed) "Show more" else "Show less") { collapsed = !collapsed }
-                .pointerInput(Unit) {
-                    detectDragGestures { change, drag ->
-                        change.consume()
-                        if (drag.y > 6) collapsed = true else if (drag.y < -6) collapsed = false
-                    }
-                },
-            contentAlignment = Alignment.Center,
-        ) { Box(Modifier.size(width = 40.dp, height = 5.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFFD5DBD9))) }
-
-        if (!collapsed) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (nearest != null && fix != null) {
-                    val d = Mercator.distanceMeters(fix.geo, nearest.geo)
-                    val dir = Mercator.compass(Mercator.bearing(fix.geo, nearest.geo))
-                    Box(Modifier.size(40.dp).clip(CircleShape).background(C.badSoft).clickable { onOpenPin(nearest) }, contentAlignment = Alignment.Center) {
-                        Box(Modifier.size(12.dp).clip(CircleShape).background(hexColor(nearest.kind.color)))
-                    }
-                    Column(Modifier.weight(1f).clickable { onOpenPin(nearest) }) {
-                        Text(nearest.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.ink, maxLines = 1)
-                        Text("${Mercator.formatDistance(d, settings.metric)} $dir · ${nearest.kind.label}", fontSize = 13.sp, color = C.muted, maxLines = 1)
-                    }
-                } else {
-                    Column(Modifier.weight(1f)) {
-                        Text(if (fix == null) "Finding your location…" else "No pins yet", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.ink)
-                        Text("Tap Pin to mark a home site, a find or a LiDAR feature.", fontSize = 13.sp, color = C.muted, maxLines = 2)
-                    }
-                }
-                fix?.accuracy?.let {
-                    Text(
-                        "GPS ±${Mercator.formatDistance(it.toDouble(), settings.metric)}",
-                        Modifier.clip(RoundedCornerShape(50)).background(C.accentSoft).padding(horizontal = 10.dp, vertical = 5.dp),
-                        color = C.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-            if (mode == Mode.OVERLAY) {
-                var v by remember { mutableFloatStateOf(settings.overlayOpacity) }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("$topLabel ${(v * 100).roundToInt()}%", Modifier.width(130.dp), color = C.ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Slider(
-                        value = v, onValueChange = { v = it }, valueRange = 0f..1f,
-                        onValueChangeFinished = { Repo.updateSettings { it.copy(overlayOpacity = v) } },
-                        colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent, inactiveTrackColor = C.line),
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+    Column(modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (mode == Mode.OVERLAY) {
+            var v by remember { mutableFloatStateOf(settings.overlayOpacity) }
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.bg).padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("$topLabel ${(v * 100).roundToInt()}%", Modifier.width(130.dp), color = C.ink, fontWeight = FontWeight.SemiBold)
+                Slider(
+                    value = v, onValueChange = { v = it }, valueRange = 0f..1f,
+                    onValueChangeFinished = { Repo.updateSettings { it.copy(overlayOpacity = v) } },
+                    colors = SliderDefaults.colors(thumbColor = C.accent, activeTrackColor = C.accent),
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ToolButton("Layers", Glyph.LAYERS, onLayers, Modifier.weight(1f))
-            ToolButton(if (pinMode) "Cancel" else "Pin", Glyph.PIN, onPin, Modifier.weight(1f), kind = if (pinMode) "primary" else "soft")
-            ToolButton(elapsed ?: "Record", if (elapsed != null) Glyph.STOP else Glyph.RECORD, {
-                if (recordingSince != null) TrackService.stop(ctx)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
+            Pill("More", onMore, kind = "dark")
+            Pill(if (pinMode) "Cancel pin" else "Pin", onPin, kind = if (pinMode) "primary" else "dark")
+            Pill("Pin here", onPinHere, kind = "dark")
+            Pill(if (recording) "Stop track" else "Record", {
+                if (recording) TrackService.stop(ctx)
                 else if (Build.VERSION.SDK_INT >= 33 &&
                     ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
                 ) askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
                 else TrackService.start(ctx)
-            }, Modifier.weight(1f), kind = "danger")
-            ToolButton(if (follow) "Following" else "Follow", Glyph.FOLLOW, onLocate, Modifier.weight(1f), kind = if (follow) "primary" else "soft")
+            }, kind = if (recording) "danger" else "dark")
+            Pill(if (follow) "Following" else "Locate", onLocate, kind = if (follow) "primary" else "dark")
         }
+        fix?.accuracy?.let {
+            Toast("GPS ±${Mercator.formatDistance(it.toDouble(), settings.metric)}", Modifier.align(Alignment.CenterHorizontally).padding(bottom = 4.dp))
+        }
+        Spacer(Modifier.height(2.dp))
     }
 }

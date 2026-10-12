@@ -63,8 +63,8 @@ fun PinDialog(
                         val on = k == kind
                         Row(
                             Modifier.clip(RoundedCornerShape(20.dp))
-                                .background(if (on) C.accent else C.panel)
-                                .border(1.dp, if (on) C.accent else C.line, RoundedCornerShape(20.dp))
+                                .background(if (on) C.ink else C.panel)
+                                .border(1.dp, if (on) C.ink else C.line, RoundedCornerShape(20.dp))
                                 .clickable { kind = k }
                                 .padding(horizontal = 10.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically,
