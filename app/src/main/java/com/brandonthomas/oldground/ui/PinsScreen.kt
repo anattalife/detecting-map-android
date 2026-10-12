@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -104,7 +105,7 @@ fun PinsScreen(nav: Nav) {
         ScrollColumn(Modifier.padding(horizontal = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 SectionTitle("Pins (${data.pins.size})", Modifier.weight(1f))
-                Segmented(metric, listOf(false to "ft / mi", true to "m / km"), { v -> Repo.updateSettings { it.copy(metric = v) } })
+                Segmented(metric, listOf(false to "ft / mi", true to "m / km"), { v -> Repo.updateSettings { it.copy(metric = v) } }, Modifier.width(160.dp))
             }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

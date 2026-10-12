@@ -37,6 +37,7 @@ import java.util.Locale
 fun hexColor(hex: String): Color = Color(android.graphics.Color.parseColor(hex))
 
 /** Add or edit a pin: name, kind, note. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun PinDialog(
     d: PinDraft,
@@ -58,7 +59,7 @@ fun PinDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true,
                     placeholder = { Text("Name") }, modifier = Modifier.fillMaxWidth())
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     for (k in PinKind.entries) {
                         val on = k == kind
                         Row(

@@ -116,7 +116,7 @@ fun Modifier.card(radius: Int = 16, elevation: Int = 3): Modifier =
  * for use inside white panels), dark (white, floating over a map), green (= primary).
  */
 @Composable
-fun Pill(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, kind: String = "plain", enabled: Boolean = true) {
+fun Pill(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, kind: String = "plain", enabled: Boolean = true, small: Boolean = false) {
     val (bg, fg) = when (kind) {
         "primary", "green" -> C.accent to Color.White
         "danger" -> C.bad to Color.White
@@ -132,10 +132,10 @@ fun Pill(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, kind
             .background(bg)
             .then(if (!enabled) Modifier.alpha(0.45f) else Modifier)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 11.dp),
+            .padding(horizontal = if (small) 12.dp else 16.dp, vertical = if (small) 9.dp else 11.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = fg, fontSize = 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Text(label, color = fg, fontSize = if (small) 13.sp else 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1)
     }
 }
 

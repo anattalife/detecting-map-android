@@ -219,17 +219,17 @@ fun AlignScreen(nav: Nav, mapId: String) {
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Pill("+ Anchor", ::addAnchor, kind = "primary")
-            Pill("Move", ::moveSelected, enabled = selected != null)
+            Pill("+ Anchor", ::addAnchor, kind = "primary", small = true)
+            Pill("Move", ::moveSelected, kind = "soft", enabled = selected != null, small = true)
             Pill("Delete", {
                 val id = selected
                 if (id != null) {
                     Repo.updateMap(mapId) { m -> m.copy(anchors = m.anchors.filter { it.id != id }) }
                     selected = null
                 }
-            }, enabled = selected != null)
-            Pill("List ${map.anchors.size}", { listOpen = true })
-            Pill(if (showMesh) "Mesh ✓" else "Mesh", { showMesh = !showMesh })
+            }, kind = "soft", enabled = selected != null, small = true)
+            Pill("List ${map.anchors.size}", { listOpen = true }, kind = "soft", small = true)
+            Pill(if (showMesh) "Mesh ✓" else "Mesh", { showMesh = !showMesh }, kind = if (showMesh) "tint" else "soft", small = true)
         }
         val checkCount = report.count { it.status == AnchorStatus.CHECK || it.status == AnchorStatus.BAD }
         val sel = selected?.let { statusById[it] }
