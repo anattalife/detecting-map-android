@@ -43,6 +43,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.brandonthomas.oldground.map.Features
+import com.brandonthomas.oldground.map.Data
+import com.brandonthomas.oldground.map.Base
+import com.brandonthomas.oldground.data.Layer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -83,6 +88,7 @@ fun SiteScreen(nav: Nav, siteId: String, debug: String? = null) {
     var photoMenu by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(debug == "edit") }
     var busy by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf<java.time.LocalDate?>(if (debug == "visit") visits.firstOrNull { it.tracks.isNotEmpty() }?.day else null) }
 
     fun setPhoto(uri: Uri) {
         busy = true
@@ -136,21 +142,47 @@ fun SiteScreen(nav: Nav, siteId: String, debug: String? = null) {
                 Stat("${finds.count { it.material == "Silver" }}", "silver", Modifier.weight(1f))
                 Stat(visits.sumOf { it.detectingMs }.takeIf { it > 0 }?.let(Sites::formatDuration) ?: "–", "detecting", Modifier.weight(1f))
             }
-            val visitingHere = data.visits.lastOrNull { it.endedAt == null }?.siteId == site.id
-            if (visitingHere) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Pill("Back to the map", { nav.go(Screen.Hunt(null, siteId = site.id)) }, Modifier.weight(1f), kind = "primary")
-                Pill("End visit", { com.brandonthomas.oldground.location.VisitControl.end(ctx) }, Modifier.weight(1f), kind = "soft")
-            } else Pill("Start a visit", { nav.go(Screen.Hunt(null, siteId = site.id, startVisit = true)) }, Modifier.fillMaxWidth(), kind = "primary")
             if (site.access == "Permission" || site.permission != null) PermissionCard(nav, site, finds, metric)
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text("Visits", Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = C.ink)
-                Text("See it on the map", Modifier.clickable { nav.go(Screen.Hunt(null, siteId = site.id)) }.padding(4.dp), color = C.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            val visitingHere = data.visits.lastOrNull { it.endedAt == null }?.siteId == site.id
+            Column(Modifier.fillMaxWidth().card(18).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Visits", Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = C.ink)
+                    if (visitingHere) Text(
+                        "End visit", Modifier.clickable { com.brandonthomas.oldground.location.VisitControl.end(ctx) }.padding(4.dp),
+                        color = C.bad, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold,
+                    ) else Text(
+                        "+ Start", Modifier.clickable { nav.go(Screen.Hunt(null, siteId = site.id, startVisit = true)) }.padding(4.dp),
+                        color = C.accent, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold,
+                    )
+                }
+                val sel = visits.firstOrNull { it.day == selected }
+                CoverageMap(site, visits, sel, Modifier.fillMaxWidth().height(190.dp)) { nav.go(Screen.Hunt(null, siteId = site.id)) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        when {
+                            sel != null -> listOfNotNull(
+                                sel.day.format(DAY),
+                                sel.detectingMs.takeIf { it > 0 }?.let(Sites::formatDuration),
+                                sel.walkedM.takeIf { it > 0 }?.let { Mercator.formatDistance(it, metric) },
+                                "${sel.finds.size} find${if (sel.finds.size == 1) "" else "s"}",
+                            ).joinToString(" · ")
+                            visits.any { it.tracks.isNotEmpty() } -> "Your paths: newest bright, older ones fade"
+                            data.settings.recordPath -> "Your path shows here after a visit"
+                            else -> "Path recording is off in Settings"
+                        },
+                        Modifier.weight(1f), fontSize = 12.sp, color = C.muted, maxLines = 1,
+                    )
+                    if (sel != null) Text(
+                        "Open ›", Modifier.clickable { nav.go(Screen.Visit(site.id, sel.day.toString())) }.padding(start = 8.dp),
+                        color = C.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    )
+                }
+                if (visits.isEmpty()) Text(
+                    "No visits yet. Tap + Start when you get there. The time, your path and the finds you log inside the outline show up here by day.",
+                    color = C.muted, fontSize = 14.sp, lineHeight = 20.sp,
+                )
+                for (v in visits) VisitCard(v, v.day == selected) { selected = if (selected == v.day) null else v.day }
             }
-            if (visits.isEmpty()) Text(
-                "No visits yet. Tap Start a visit when you get there. Its time, your path and the finds you log inside the outline show up here by day.",
-                color = C.muted, fontSize = 14.sp, lineHeight = 20.sp,
-            )
-            for (v in visits) VisitCard(v) { nav.go(Screen.Visit(site.id, v.day.toString())) }
             Spacer(Modifier.height(12.dp))
         }
     }
@@ -188,8 +220,12 @@ private fun Stat(value: String, label: String, modifier: Modifier) {
 private val DAY = DateTimeFormatter.ofPattern("EEE, MMM d")
 
 @Composable
-private fun VisitCard(v: Visit, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().card(16).clickable(onClick = onClick).padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+private fun VisitCard(v: Visit, on: Boolean, onClick: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (on) Color(0xFFFDF1E4) else C.soft.copy(alpha = 0.5f))
+            .clickable(onClick = onClick).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(v.day.format(DAY), Modifier.weight(1f), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = C.ink)
             Text(
@@ -259,4 +295,36 @@ private fun EditSiteSheet(site: Site, onDismiss: () -> Unit, onRedraw: () -> Uni
         "Delete this site?", "\"${site.name}\" and its outline will be removed. Its finds stay on the map and under All finds.", "Delete",
         onCancel = { confirm = false },
     ) { confirm = false; onDelete() }
+}
+
+/** The site with every visit's path: newest bright, older ones faded; a chosen visit stands out with its finds. */
+@Composable
+private fun CoverageMap(site: Site, visits: List<Visit>, sel: Visit?, modifier: Modifier, onClick: () -> Unit) {
+    val conf = LocalConfiguration.current
+    val m = rememberOgMap("cover-${site.id}", interactive = false)
+    LaunchedEffect(m, site.outline) {
+        val b = Sites.bounds(site.ring) ?: return@LaunchedEffect
+        m.setCamera(Sites.center(site.ring)!!, Sites.fitZoom(b, conf.screenWidthDp - 60f, 190f, 0.85), 0.0)
+        m.setBase(Base.Geo(Layer.AERIAL, "cover"), Repo.current.settings)
+        m.setData(Data.SITES, Features.sites(listOf(site.copy(name = "")), { it }))
+    }
+    LaunchedEffect(m, visits, sel) {
+        // visits are newest first: the newest is solid, each older one fainter (never below 0.25).
+        val n = visits.size
+        val paths = visits.withIndex().reversed().flatMap { (i, v) ->
+            val o = if (n <= 1) 1.0 else 1.0 - 0.75 * i / (n - 1)
+            v.tracks.map { pts ->
+                when {
+                    sel == null -> Features.Path(pts, "#ff8a3d", o, 3.0)
+                    v.day == sel.day -> Features.Path(pts, "#ffe14d", 1.0, 4.0)
+                    else -> Features.Path(pts, "#ffffff", 0.22, 2.0)
+                }
+            }
+        }.sortedBy { if (sel != null && it.color == "#ffe14d") 1 else 0 }
+        m.setData(Data.TRACKS, Features.paths(paths))
+        m.setData(Data.PINS, Features.pins((sel?.finds ?: emptyList()).map { it.copy(name = "", photos = emptyList()) }, { it }))
+    }
+    Box(modifier.clip(RoundedCornerShape(14.dp)).background(Color(0xFF6B7A45)).clickable(onClick = onClick)) {
+        MapBox(m, Modifier.fillMaxSize())
+    }
 }

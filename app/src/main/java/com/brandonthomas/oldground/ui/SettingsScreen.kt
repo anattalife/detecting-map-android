@@ -86,7 +86,7 @@ fun SettingsScreen(nav: Nav) {
                     Text("Change", color = C.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 Line()
-                Item("Record my path during visits", "Draws where you walked on each visit") {
+                Item("Record my path on visits", "Draws where you've walked on the site's map") {
                     Toggle(s.recordPath) { v -> Repo.updateSettings { it.copy(recordPath = v) } }
                 }
                 Line()

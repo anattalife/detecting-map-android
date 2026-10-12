@@ -88,7 +88,7 @@ class MainActivity : ComponentActivity() {
         val start: Pair<Tab, List<Screen>>? = when (i?.getStringExtra("screen")) {
             "align" -> mapExtra?.let { Tab.OLD to listOf(Screen.Align(it)) }
             "sites" -> Tab.SITES to emptyList()
-            "finds" -> Tab.FINDS to listOf(Screen.FindsRoot(when (debug) { "pins" -> 1; "tracks" -> 2; else -> 0 }))
+            "finds" -> Tab.FINDS to listOf(Screen.FindsRoot(when (debug) { "pins" -> 1; else -> 0 }))
             "old" -> Tab.OLD to emptyList()
             "community" -> Tab.COMMUNITY to listOf(Screen.CommunityRoot(debug))
             "post" -> Tab.COMMUNITY to listOf(Screen.CommunityRoot(), Screen.CommunityPost(i.getStringExtra("post") ?: "d1", debug))

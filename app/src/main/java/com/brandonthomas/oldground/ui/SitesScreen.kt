@@ -83,7 +83,7 @@ fun SitesRoot(nav: Nav) {
     }
 }
 
-/** Finds tab: every find by site, plus other pins and recorded tracks. */
+/** Finds tab: every find by site, plus other pins. (Recorded paths live with their visits on each site.) */
 @Composable
 fun FindsRoot(nav: Nav, startSub: Int = 0) {
     val ctx = LocalContext.current
@@ -96,13 +96,12 @@ fun FindsRoot(nav: Nav, startSub: Int = 0) {
     Column(Modifier.fillMaxSize().background(C.bg)) {
         TabHeader("Finds", nav) { Pill("Export", { message = exportGpx(ctx) }, kind = "tint", small = true) }
         Segmented(
-            sub, listOf(0 to "Finds $findCount", 1 to "Other pins $otherCount", 2 to "Tracks ${data.tracks.size}"), { sub = it },
+            sub, listOf(0 to "Finds $findCount", 1 to "Other pins $otherCount"), { sub = it },
             Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
         )
         when (sub) {
             0 -> AllFindsTab(nav, data, bySite)
-            1 -> PinsTracksTab(nav, tracks = false)
-            else -> PinsTracksTab(nav, tracks = true)
+            else -> PinsTracksTab(nav, tracks = false)
         }
     }
     message?.let { (t, b) -> MessageDialog(t, b) { message = null } }

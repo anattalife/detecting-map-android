@@ -37,6 +37,7 @@ shot() { # name, then extras for the app
   sleep ${WAIT:-22}
   if adb shell pidof $P > /dev/null; then echo "$name: running" >> $OUT/result.txt
   else echo "$name: CRASHED" >> $OUT/result.txt; fi
+  if [ -n "${SCROLL:-}" ]; then adb shell input swipe 540 1900 540 $((1900 - SCROLL)) 600; sleep 3; fi
   adb exec-out screencap -p > $OUT/$name.png
 }
 WAIT=45 shot HOME
@@ -56,7 +57,8 @@ shot ANCHORS --es screen align --es openMap ci1
 shot SITES --es screen sites
 shot ALLFINDS --es screen finds
 shot PINSTAB --es screen finds --es debug pins
-shot TRACKS --es screen finds --es debug tracks
+SCROLL=900 shot COVERAGE --es screen site --es site s1
+SCROLL=900 shot COVERSEL --es screen site --es site s1 --es debug visit
 shot OLDMAPS --es screen old
 shot SETTINGS --es screen settings
 shot SITE --es screen site --es site s1

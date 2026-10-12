@@ -294,7 +294,7 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
             )
             Data.TRACKS -> s.addLayer(
                 LineLayer("og-tracks", sid).withProperties(
-                    PropertyFactory.lineColor("#ff6d00"), PropertyFactory.lineWidth(3f), PropertyFactory.lineOpacity(0.85f),
+                    PropertyFactory.lineColor(Expression.toColor(get("c"))), PropertyFactory.lineWidth(Expression.toNumber(get("w"))), PropertyFactory.lineOpacity(Expression.toNumber(get("o"))),
                     PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND), PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
                 ),
             )

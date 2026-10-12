@@ -67,7 +67,20 @@ object Features {
     fun tracks(tracks: Collection<List<TrackPt>>, place: (LngLat) -> LngLat?): FeatureCollection =
         FeatureCollection.fromFeatures(tracks.mapNotNull { pts ->
             val line = pts.mapNotNull { place(LngLat(it.lng, it.lat))?.let(::pt) }
-            if (line.size < 2) null else Feature.fromGeometry(LineString.fromLngLats(line))
+            if (line.size < 2) null else Feature.fromGeometry(LineString.fromLngLats(line)).apply {
+                addStringProperty("c", "#ff6d00"); addNumberProperty("o", 0.85); addNumberProperty("w", 3)
+            }
+        })
+
+    /** Paths drawn with their own colour, opacity and width (a site's visits, newest brightest). */
+    data class Path(val pts: List<TrackPt>, val color: String, val opacity: Double, val width: Double)
+
+    fun paths(paths: List<Path>): FeatureCollection =
+        FeatureCollection.fromFeatures(paths.mapNotNull { p ->
+            val line = p.pts.map { pt(LngLat(it.lng, it.lat)) }
+            if (line.size < 2) null else Feature.fromGeometry(LineString.fromLngLats(line)).apply {
+                addStringProperty("c", p.color); addNumberProperty("o", p.opacity); addNumberProperty("w", p.width)
+            }
         })
 
     fun gps(fix: Fix?, place: (LngLat) -> LngLat?, mapBearing: Double = 0.0): FeatureCollection {
