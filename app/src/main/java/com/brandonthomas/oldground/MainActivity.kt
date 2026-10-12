@@ -6,13 +6,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import com.brandonthomas.oldground.community.Community
 import com.brandonthomas.oldground.location.LocationHub
 import com.brandonthomas.oldground.ui.AppShell
 import com.brandonthomas.oldground.ui.CrashReport
 import com.brandonthomas.oldground.ui.OldGroundTheme
 
 /** The four tabs along the bottom. */
-enum class Tab { MAP, SITES, FINDS, OLD }
+enum class Tab { MAP, SITES, FINDS, COMMUNITY, OLD }
 
 /**
  * Something to show on the Map tab. Every "show on map", "start a visit" or "open this old map"
@@ -36,11 +37,17 @@ sealed interface Screen {
     data object SitesRoot : Screen
     data class FindsRoot(val sub: Int = 0) : Screen
     data object OldMapsRoot : Screen
+    data class CommunityRoot(val debug: String? = null) : Screen
     // Pages inside a tab.
     data class Site(val id: String, val debug: String? = null) : Screen
     data class Visit(val siteId: String, val day: String) : Screen
     data class Align(val mapId: String) : Screen
     data object Settings : Screen
+    data class CommunityPost(val id: String, val debug: String? = null) : Screen
+    /** A new post, optionally filled in from one of your finds. */
+    data class Compose(val pinId: String? = null, val debug: String? = null) : Screen
+    /** Sign in to the community. */
+    data class JoinPage(val debug: String? = null) : Screen
     /**
      * Not a page: going here switches to the Map tab and shows what's asked
      * ([mapId] also switches the old map on top).
@@ -79,6 +86,10 @@ class MainActivity : ComponentActivity() {
             "sites" -> Tab.SITES to emptyList()
             "finds" -> Tab.FINDS to listOf(Screen.FindsRoot(when (debug) { "pins" -> 1; "tracks" -> 2; else -> 0 }))
             "old" -> Tab.OLD to emptyList()
+            "community" -> Tab.COMMUNITY to listOf(Screen.CommunityRoot(debug))
+            "post" -> Tab.COMMUNITY to listOf(Screen.CommunityRoot(), Screen.CommunityPost(i.getStringExtra("post") ?: "d1", debug))
+            "compose" -> Tab.COMMUNITY to listOf(Screen.CommunityRoot(), Screen.Compose(debug = debug))
+            "join" -> Tab.COMMUNITY to listOf(Screen.CommunityRoot(), Screen.JoinPage(debug))
             "settings" -> Tab.OLD to listOf(Screen.Settings)
             "site" -> i.getStringExtra("site")?.let { Tab.SITES to listOf(Screen.Site(it, debug)) }
             "visit" -> {
@@ -88,6 +99,8 @@ class MainActivity : ComponentActivity() {
             }
             else -> null
         }
+        // Screenshots of the community use made-up posts, never the real server.
+        if (i?.getStringExtra("community") == "demo") Community.startDemo()
         val startMap = if (i?.hasExtra("openMap") == true && start == null) {
             Screen.Hunt(
                 mapExtra, i.getStringExtra("pin"), i.getStringExtra("mode"), debug,

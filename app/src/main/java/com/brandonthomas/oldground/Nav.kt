@@ -18,6 +18,7 @@ class ShellState(startTab: Tab, oldMap: String?) {
         Tab.MAP to mutableStateListOf(),
         Tab.SITES to mutableStateListOf(Screen.SitesRoot),
         Tab.FINDS to mutableStateListOf(Screen.FindsRoot()),
+        Tab.COMMUNITY to mutableStateListOf(Screen.CommunityRoot()),
         Tab.OLD to mutableStateListOf(Screen.OldMapsRoot),
     )
     /** The old map on top on the Map tab (null: today's maps only). */
@@ -54,6 +55,11 @@ class ShellState(startTab: Tab, oldMap: String?) {
             }
             is Screen.Site, is Screen.Visit -> openIn(Tab.SITES, false, s)
             is Screen.Align -> openIn(Tab.OLD, false, s)
+            is Screen.CommunityRoot -> {
+                val st = stacks.getValue(Tab.COMMUNITY)
+                st.clear(); st.add(s); tab = Tab.COMMUNITY
+            }
+            is Screen.CommunityPost, is Screen.Compose, is Screen.JoinPage -> openIn(Tab.COMMUNITY, false, s)
             Screen.Settings -> {
                 if (tab == Tab.MAP) tab = Tab.OLD
                 stacks.getValue(tab).add(s)

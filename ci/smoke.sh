@@ -71,6 +71,17 @@ shot PLACE --es openMap none --es mode OVERLAY --es site s1 --es debug place
 shot SEARCH --es openMap none --es mode OVERLAY --es debug search
 shot RECORDING --es openMap none --es mode OVERLAY --es site s1 --es startVisit 1 --es debug none
 shot SITESREC --es screen sites
+shot COMMUNITY --es screen community --es community demo
+shot CFILTER --es screen community --es community demo --es debug filter
+shot CPOST --es screen post --es post d1 --es community demo
+shot CPOSTMENU --es screen post --es post d1 --es community demo --es debug menu
+shot CVIDEO --es screen post --es post d2 --es community demo
+shot CCOMPOSE --es screen compose --es community demo --es debug find
+shot CCOMPOSEV --es screen compose --es community demo --es debug video
+shot CJOIN --es screen join
+shot CJOINNAME --es screen join --es community demo --es debug name
+shot CSETTINGS --es screen settings --es community demo
+shot CLIVE --es screen community
 adb shell "run-as $P cat files/last-crash.txt" > $OUT/last-crash.txt 2>/dev/null || true
 adb logcat -d -b crash > $OUT/crash.txt
 adb logcat -d -v brief AndroidRuntime:E OldGround:V libc:F DEBUG:F maplibre:E Mbgl:E '*:S' > $OUT/errors.txt

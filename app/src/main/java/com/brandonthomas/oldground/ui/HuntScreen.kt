@@ -752,6 +752,7 @@ fun HuntScreen(
             p, fix, settings.metric, p.mapId?.let { mid -> data.maps.firstOrNull { it.id == mid }?.name }, guideTo == p.id,
             onGuide = { guideTo = if (guideTo == p.id) null else p.id; cardPin = null },
             onEdit = { cardPin = null; draft = PinDraft.of(p) },
+            onPost = { cardPin = null; nav.go(Screen.Compose(p.id)) },
             onDismiss = { cardPin = null },
         )
     }

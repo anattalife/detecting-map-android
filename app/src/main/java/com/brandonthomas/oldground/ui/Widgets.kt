@@ -196,7 +196,7 @@ fun RoundButton(onClick: () -> Unit, label: String, modifier: Modifier = Modifie
 }
 
 /** Small line icons drawn in code (no icon library needed). */
-enum class Glyph { BACK, LAYERS, PIN, RECORD, STOP, FOLLOW, MORE, CHEVRON, PLUS, LIST, CAMERA, IMAGE, CLOSE, MAP, OUTLINE, COIN, BOOK, SEARCH, GEAR }
+enum class Glyph { BACK, LAYERS, PIN, RECORD, STOP, FOLLOW, MORE, CHEVRON, PLUS, LIST, CAMERA, IMAGE, CLOSE, MAP, OUTLINE, COIN, BOOK, SEARCH, GEAR, CHAT }
 
 @Composable
 fun GlyphIcon(g: Glyph, color: Color, modifier: Modifier = Modifier.size(22.dp)) {
@@ -290,6 +290,10 @@ fun GlyphIcon(g: Glyph, color: Color, modifier: Modifier = Modifier.size(22.dp))
                 drawRoundRect(color, Offset(w * 0.16f, h * 0.21f), Size(w * 0.68f, h * 0.58f), CornerRadius(w * 0.08f), style = stroke)
                 drawPath(Path().apply { moveTo(w * 0.16f, h * 0.67f); lineTo(w * 0.37f, h * 0.46f); lineTo(w * 0.54f, h * 0.63f); lineTo(w * 0.67f, h * 0.5f); lineTo(w * 0.84f, h * 0.67f) }, color, style = stroke)
             }
+            Glyph.CHAT -> drawPath(Path().apply {
+                moveTo(w * 0.16f, h * 0.2f); lineTo(w * 0.84f, h * 0.2f); lineTo(w * 0.84f, h * 0.66f)
+                lineTo(w * 0.4f, h * 0.66f); lineTo(w * 0.16f, h * 0.84f); close()
+            }, color, style = stroke)
             Glyph.LIST -> for (i in 0..2) drawLine(color, Offset(w * 0.18f, h * (0.28f + i * 0.22f)), Offset(w * 0.82f, h * (0.28f + i * 0.22f)), sw, StrokeCap.Round)
         }
     }

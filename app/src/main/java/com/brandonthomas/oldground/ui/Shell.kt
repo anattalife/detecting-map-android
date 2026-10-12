@@ -65,7 +65,7 @@ fun AppShell(start: Pair<Tab, List<Screen>>?, startMap: Screen.Hunt?) {
         val last = data.settings.lastOldMap?.takeIf { id -> data.maps.any { it.id == id && it.aligned } }
         ShellState(Tab.MAP, last).apply {
             start?.let { (t, pages) ->
-                if (t == Tab.FINDS && pages.firstOrNull() is Screen.FindsRoot) go(pages.first()) else {
+                if ((t == Tab.FINDS && pages.firstOrNull() is Screen.FindsRoot) || t == Tab.COMMUNITY) pages.forEach { go(it) } else {
                     go(when (t) { Tab.SITES -> Screen.SitesRoot; Tab.OLD -> Screen.OldMapsRoot; else -> Screen.SitesRoot })
                     pages.forEach { go(it) }
                 }
@@ -112,6 +112,10 @@ private fun Page(nav: Nav, s: Screen) {
         is Screen.Visit -> VisitScreen(nav, s.siteId, s.day)
         is Screen.Align -> AlignScreen(nav, s.mapId)
         Screen.Settings -> SettingsScreen(nav)
+        is Screen.CommunityRoot -> CommunityRoot(nav, s.debug)
+        is Screen.CommunityPost -> CommunityPostScreen(nav, s.id, s.debug)
+        is Screen.Compose -> ComposeScreen(nav, s.pinId, s.debug)
+        is Screen.JoinPage -> JoinScreen(nav, s.debug)
         is Screen.Hunt -> {}
     }
 }
@@ -125,6 +129,7 @@ private fun TabBar(current: Tab, onSelect: (Tab) -> Unit) {
                 Triple(Tab.MAP, "Map", Glyph.MAP),
                 Triple(Tab.SITES, "Sites", Glyph.OUTLINE),
                 Triple(Tab.FINDS, "Finds", Glyph.COIN),
+                Triple(Tab.COMMUNITY, "Community", Glyph.CHAT),
                 Triple(Tab.OLD, "Old maps", Glyph.BOOK),
             )) {
                 val on = t == current
@@ -134,10 +139,10 @@ private fun TabBar(current: Tab, onSelect: (Tab) -> Unit) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Box(Modifier.size(width = 50.dp, height = 28.dp).clip(RoundedCornerShape(50)).background(if (on) C.accentSoft else Color.Transparent), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(width = 46.dp, height = 28.dp).clip(RoundedCornerShape(50)).background(if (on) C.accentSoft else Color.Transparent), contentAlignment = Alignment.Center) {
                         GlyphIcon(glyph, color, Modifier.size(21.dp))
                     }
-                    Text(label, fontSize = 11.sp, fontWeight = if (on) FontWeight.ExtraBold else FontWeight.SemiBold, color = color)
+                    Text(label, fontSize = 10.5.sp, maxLines = 1, fontWeight = if (on) FontWeight.ExtraBold else FontWeight.SemiBold, color = color)
                 }
             }
         }

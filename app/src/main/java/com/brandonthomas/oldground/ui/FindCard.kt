@@ -75,6 +75,7 @@ fun FindCard(
     guiding: Boolean,
     onGuide: () -> Unit,
     onEdit: () -> Unit,
+    onPost: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -147,6 +148,7 @@ fun FindCard(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Pill("Edit", onEdit, Modifier.weight(1f), kind = "soft")
                 Pill("Share", { share(ctx, p, metric) }, Modifier.weight(1f), kind = "soft")
+                if (onPost != null && p.kind == com.brandonthomas.oldground.data.PinKind.FIND && p.photos.isNotEmpty()) Pill("Post", onPost, Modifier.weight(1f), kind = "tint")
             }
         }
     }

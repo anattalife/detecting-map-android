@@ -38,6 +38,9 @@ import androidx.compose.ui.unit.sp
 import com.brandonthomas.oldground.Nav
 import com.brandonthomas.oldground.data.Repo
 import com.brandonthomas.oldground.map.OfflineAreas
+import com.brandonthomas.oldground.Screen
+import com.brandonthomas.oldground.community.Community
+import kotlinx.coroutines.launch
 
 /** Everything you set once: units, detector, screen, public land, offline areas, export. */
 @Composable
@@ -50,6 +53,8 @@ fun SettingsScreen(nav: Nav) {
     var editDetector by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Pair<String, String>?>(null) }
     var deleting by remember { mutableStateOf<OfflineAreas.Area?>(null) }
+    var deletingAccount by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     LaunchedEffect(areasTick) { OfflineAreas.list(ctx) { areas = it } }
 
     Column(Modifier.fillMaxSize().background(C.bg)) {
@@ -94,6 +99,20 @@ fun SettingsScreen(nav: Nav) {
                     }
                 }
             }
+            Group("Community") {
+                val me by Community.me.collectAsState()
+                if (me == null) {
+                    Item("Join the community", "Post finds, upvote and comment", onClick = { nav.go(Screen.JoinPage()) }) {
+                        GlyphIcon(Glyph.CHEVRON, C.faint, Modifier.size(18.dp))
+                    }
+                } else {
+                    Item("Signed in as ${me!!.username}")
+                    Line()
+                    Item("Sign out", onClick = { Community.signOut() })
+                    Line()
+                    Item("Delete my community account", "Removes your posts and comments", onClick = { deletingAccount = true })
+                }
+            }
             Group("Your data") {
                 Item("Export pins and tracks", "A GPX file for other GPS units and apps", onClick = { message = exportGpx(ctx) }) {
                     GlyphIcon(Glyph.CHEVRON, C.faint, Modifier.size(18.dp))
@@ -116,6 +135,10 @@ fun SettingsScreen(nav: Nav) {
             OfflineAreas.delete(ctx, a.name) { areasTick++ }
             deleting = null
         }
+    }
+    if (deletingAccount) ConfirmDialog("Delete your community account?", "Your name, posts, photos and comments are removed for good. Your maps, sites and finds on this phone stay.", "Delete", { deletingAccount = false }) {
+        deletingAccount = false
+        scope.launch { runCatching { Community.deleteAccount() }.onFailure { message = "Couldn't delete it" to (it.message ?: "") } }
     }
     message?.let { (t, b) -> MessageDialog(t, b) { message = null } }
 }
