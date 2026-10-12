@@ -67,6 +67,11 @@ fun SettingsScreen(nav: Nav) {
             Text("Settings", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = C.ink)
         }
         ScrollColumn(Modifier.padding(horizontal = 16.dp)) {
+            Group("Help") {
+                Item("How to use OldGround", "A guide to every feature", onClick = { nav.go(Screen.Help) }) {
+                    GlyphIcon(Glyph.CHEVRON, C.faint, Modifier.size(18.dp))
+                }
+            }
             Group("In the field") {
                 Item("Units") {
                     Segmented(s.metric, listOf(false to "Feet", true to "Meters"), { v -> Repo.updateSettings { it.copy(metric = v) } }, Modifier.width(170.dp))

@@ -82,6 +82,8 @@ shot CJOIN --es screen join
 shot CJOINNAME --es screen join --es community demo --es debug name
 shot CSETTINGS --es screen settings --es community demo
 shot CLIVE --es screen community
+shot HELP --es screen help
+shot HELPTOPIC --es screen help --es topic old-maps
 adb shell "run-as $P cat files/last-crash.txt" > $OUT/last-crash.txt 2>/dev/null || true
 adb logcat -d -b crash > $OUT/crash.txt
 adb logcat -d -v brief AndroidRuntime:E OldGround:V libc:F DEBUG:F maplibre:E Mbgl:E '*:S' > $OUT/errors.txt

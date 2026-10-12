@@ -43,6 +43,8 @@ sealed interface Screen {
     data class Visit(val siteId: String, val day: String) : Screen
     data class Align(val mapId: String) : Screen
     data object Settings : Screen
+    data object Help : Screen
+    data class HelpTopic(val id: String) : Screen
     data class CommunityPost(val id: String, val debug: String? = null) : Screen
     /** A new post, optionally filled in from one of your finds. */
     data class Compose(val pinId: String? = null, val debug: String? = null) : Screen
@@ -91,6 +93,7 @@ class MainActivity : ComponentActivity() {
             "compose" -> Tab.COMMUNITY to listOf(Screen.CommunityRoot(), Screen.Compose(debug = debug))
             "join" -> Tab.COMMUNITY to listOf(Screen.CommunityRoot(), Screen.JoinPage(debug))
             "settings" -> Tab.OLD to listOf(Screen.Settings)
+            "help" -> Tab.OLD to listOfNotNull(Screen.Settings, Screen.Help, i.getStringExtra("topic")?.let { Screen.HelpTopic(it) })
             "site" -> i.getStringExtra("site")?.let { Tab.SITES to listOf(Screen.Site(it, debug)) }
             "visit" -> {
                 val site = i.getStringExtra("site")

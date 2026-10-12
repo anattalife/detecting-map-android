@@ -60,6 +60,10 @@ class ShellState(startTab: Tab, oldMap: String?) {
                 st.clear(); st.add(s); tab = Tab.COMMUNITY
             }
             is Screen.CommunityPost, is Screen.Compose, is Screen.JoinPage -> openIn(Tab.COMMUNITY, false, s)
+            Screen.Help, is Screen.HelpTopic -> {
+                if (tab == Tab.MAP) tab = Tab.OLD
+                stacks.getValue(tab).add(s)
+            }
             Screen.Settings -> {
                 if (tab == Tab.MAP) tab = Tab.OLD
                 stacks.getValue(tab).add(s)
