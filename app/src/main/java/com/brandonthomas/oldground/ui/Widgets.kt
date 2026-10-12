@@ -259,13 +259,21 @@ fun GlyphIcon(g: Glyph, color: Color, modifier: Modifier = Modifier.size(22.dp))
                 drawLine(color, Offset(w * 0.63f, h * 0.63f), Offset(w * 0.84f, h * 0.84f), sw * 1.1f, StrokeCap.Round)
             }
             Glyph.GEAR -> {
-                drawCircle(color, w * 0.14f, Offset(w / 2, h / 2), style = stroke)
-                for (k in 0 until 8) {
-                    val a = Math.toRadians(k * 45.0)
-                    val c = kotlin.math.cos(a).toFloat(); val sn = kotlin.math.sin(a).toFloat()
-                    drawLine(color, Offset(w / 2 + c * w * 0.25f, h / 2 + sn * h * 0.25f), Offset(w / 2 + c * w * 0.38f, h / 2 + sn * h * 0.38f), sw * 1.2f, StrokeCap.Round)
+                // A cog: eight square teeth around a ring, and a hole in the middle.
+                val cx = w / 2; val cy = h / 2
+                val path = Path()
+                for (k in 0 until 16) {
+                    val outer = k % 2 == 0
+                    val r0 = if (outer) w * 0.42f else w * 0.31f
+                    val a0 = Math.toRadians(k * 22.5 - 8.0); val a1 = Math.toRadians(k * 22.5 + 8.0)
+                    val x0 = cx + r0 * kotlin.math.cos(a0).toFloat(); val y0 = cy + r0 * kotlin.math.sin(a0).toFloat()
+                    val x1 = cx + r0 * kotlin.math.cos(a1).toFloat(); val y1 = cy + r0 * kotlin.math.sin(a1).toFloat()
+                    if (k == 0) path.moveTo(x0, y0) else path.lineTo(x0, y0)
+                    path.lineTo(x1, y1)
                 }
-                drawCircle(color, w * 0.25f, Offset(w / 2, h / 2), style = Stroke(sw * 0.8f))
+                path.close()
+                drawPath(path, color, style = stroke)
+                drawCircle(color, w * 0.13f, Offset(cx, cy), style = stroke)
             }
             Glyph.CLOSE -> {
                 drawLine(color, Offset(w * 0.26f, h * 0.26f), Offset(w * 0.74f, h * 0.74f), sw, StrokeCap.Round)

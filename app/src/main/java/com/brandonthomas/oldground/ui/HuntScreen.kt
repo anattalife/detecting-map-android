@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -567,7 +568,7 @@ fun HuntScreen(
             } else {
                 RoundButton({ searching = true }, "Search a place", size = 38.dp) { GlyphIcon(Glyph.SEARCH, C.ink, Modifier.size(19.dp)) }
                 MapChip("${mode.label} ▾", { modePicking = true })
-                MapChip("${map?.name ?: "No old map"} ▾", { oldMapPicking = true }, Modifier.weight(1f, fill = false), highlight = map != null)
+                MapChip("${map?.name ?: "No old map"} ▾", { oldMapPicking = true }, Modifier.widthIn(max = 190.dp), highlight = map != null)
                 Spacer(Modifier.weight(1f))
                 RoundButton({ moreOpen = true }, "Layers", size = 38.dp) { GlyphIcon(Glyph.LAYERS, C.ink, Modifier.size(19.dp)) }
             }
