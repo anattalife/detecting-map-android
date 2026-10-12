@@ -145,7 +145,7 @@ object Repo {
 
     fun startTrack(): TrackMeta {
         val now = System.currentTimeMillis()
-        val t = TrackMeta(newId(), "Hunt " + java.text.DateFormat.getDateInstance().format(java.util.Date(now)), now)
+        val t = TrackMeta(newId(), "Track " + java.text.DateFormat.getDateInstance().format(java.util.Date(now)), now)
         trackFile(t.id).createNewFile()
         _trackPoints.update { it + (t.id to emptyList()) }
         update { it.copy(tracks = listOf(t) + it.tracks, recording = t.id) }

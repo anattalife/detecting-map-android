@@ -28,7 +28,7 @@ import com.brandonthomas.oldground.geo.Mercator
 
 /**
  * Records the hunt path as a foreground service, so it keeps going with the screen off
- * or the phone in a pocket. Android shows a "Recording your hunt" notification while it
+ * or the phone in a pocket. Android shows a "Recording your track" notification while it
  * runs, with a Stop button. Points go straight to the track's file.
  */
 class TrackService : Service() {
@@ -94,7 +94,7 @@ class TrackService : Service() {
     private fun notification(): Notification {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (nm.getNotificationChannel(CHANNEL) == null) {
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, "Hunt recording", NotificationManager.IMPORTANCE_LOW))
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, "Track recording", NotificationManager.IMPORTANCE_LOW))
         }
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -104,7 +104,7 @@ class TrackService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Recording your hunt")
+            .setContentTitle("Recording your track")
             .setContentText("OldGround is recording your track.")
             .setOngoing(true)
             .setContentIntent(open)

@@ -119,7 +119,7 @@ fun PinsScreen(nav: Nav) {
             }
             if (pins.isEmpty()) {
                 Text(
-                    if (data.pins.isEmpty()) "No pins yet. On the hunt map, tap Pin to mark a home site, a find or a LiDAR feature."
+                    if (data.pins.isEmpty()) "No pins yet. On the map, tap Pin to mark a home site, a find or a LiDAR feature."
                     else "No pins of this kind.",
                     color = C.muted, modifier = Modifier.padding(vertical = 16.dp),
                 )
@@ -154,7 +154,7 @@ fun PinsScreen(nav: Nav) {
             SectionTitle("Tracks (${data.tracks.size})")
             Spacer(Modifier.height(8.dp))
             if (data.tracks.isEmpty()) {
-                Text("No tracks yet. Tap Record on the hunt map; it keeps recording with the screen off.", color = C.muted, modifier = Modifier.padding(vertical = 8.dp))
+                Text("No tracks yet. Tap Record on the map; it keeps recording with the screen off.", color = C.muted, modifier = Modifier.padding(vertical = 8.dp))
             }
             for (t in data.tracks) {
                 val pts = trackPts[t.id].orEmpty()

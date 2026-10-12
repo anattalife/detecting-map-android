@@ -160,7 +160,7 @@ fun HomeScreen(nav: Nav) {
                     if (hero != null) MapThumb(hero, Modifier.fillMaxSize())
                     else Box(Modifier.fillMaxSize().background(C.accentSoft))
                     Text(
-                        if (hero != null) "Ready to hunt" else "No old map needed",
+                        if (hero != null) "Ready to explore" else "No old map needed",
                         Modifier.padding(12.dp).clip(RoundedCornerShape(50)).background(Color(0xEBFFFFFF)).padding(horizontal = 10.dp, vertical = 5.dp),
                         color = C.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                     )
@@ -170,12 +170,12 @@ fun HomeScreen(nav: Nav) {
                         Text(hero?.name ?: "LiDAR, satellite and topo", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = C.ink, maxLines = 1)
                         val pins = hero?.let { h -> data.pins.count { it.mapId == h.id } }
                         Text(
-                            if (hero != null) "${hero.anchors.size} anchors · $pins pin${if (pins == 1) "" else "s"}" else "Hunt with today's maps around you",
+                            if (hero != null) "${hero.anchors.size} anchors · $pins pin${if (pins == 1) "" else "s"}" else "Explore today's maps around you",
                             fontSize = 13.sp, color = C.muted,
                         )
                     }
                     Spacer(Modifier.width(12.dp))
-                    Pill("Hunt", { nav.go(Screen.Hunt(hero?.id)) }, kind = "primary")
+                    Pill("Explore", { nav.go(Screen.Hunt(hero?.id)) }, kind = "primary")
                 }
             }
 

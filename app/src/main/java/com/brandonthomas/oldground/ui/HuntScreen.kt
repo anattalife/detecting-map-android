@@ -517,10 +517,10 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
                     } else {
                         val layers = visibleLayers(mode, ::slot).filter { it != Layer.OLDMAP }.ifEmpty { listOf(Layer.AERIAL) }
                         val tiles = OfflineAreas.estimateTiles(b[0], b[1], b[2], b[3], 10, 17) * layers.size
-                        if (tiles > 20000) message = "Area too large" to "Zoom in closer to the area you'll hunt and try again."
+                        if (tiles > 20000) message = "Area too large" to "Zoom in closer to the area you'll explore and try again."
                         else confirmDownload = "${layers.joinToString(" and ") { it.label }}, about $tiles tiles. Old maps are always available offline." to {
                             download = 0
-                            val name = "${map?.name ?: "Hunt area"} ${java.text.DateFormat.getDateInstance().format(java.util.Date())}"
+                            val name = "${map?.name ?: "Saved area"} ${java.text.DateFormat.getDateInstance().format(java.util.Date())}"
                             if (settings.publicLand) Repo.scope.launch { PublicLand.prefetch(ctx, b) }
                             OfflineAreas.download(ctx, name, b, layers, settings, { download = it }) { err ->
                                 download = null
