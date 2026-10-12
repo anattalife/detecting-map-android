@@ -52,27 +52,22 @@ import java.text.DateFormat
 import java.time.Instant
 import java.util.Date
 
-/** Used by the automated screenshots to open on one kind. */
-var pinsStartFilter: PinKind? = null
-
-/** Every pin, nearest first, plus recorded tracks and GPX export. */
+/** Pins that aren't finds (home sites, LiDAR features, permissions), recorded tracks, and GPX export. */
 @Composable
-fun PinsScreen(nav: Nav) {
+fun PinsTracksTab(nav: Nav) {
     val ctx = LocalContext.current
     val data by Repo.data.collectAsState()
     val trackPts by Repo.trackPoints.collectAsState()
     val fix by LocationHub.fix.collectAsState()
     val metric = data.settings.metric
 
-    var filter by remember { mutableStateOf(pinsStartFilter.also { pinsStartFilter = null }) }
-    var material by remember { mutableStateOf<String?>(null) }
+    var filter by remember { mutableStateOf<PinKind?>(null) }
     var deletingTrack by remember { mutableStateOf<TrackMeta?>(null) }
     var message by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     val here = fix?.geo
     val pins = data.pins
-        .filter { filter == null || it.kind == filter }
-        .filter { filter != PinKind.FIND || material == null || it.material == material }
+        .filter { it.kind != PinKind.FIND && (filter == null || it.kind == filter) }
         .sortedWith(compareBy<Pin> { p -> here?.let { Mercator.distanceMeters(it, p.geo) } ?: 0.0 }.thenByDescending { it.createdAt })
 
     fun exportGpx() {
@@ -82,7 +77,8 @@ fun PinsScreen(nav: Nav) {
         }
         val gpx = Gpx.build(
             data.pins.map {
-                val details = if (it.kind == PinKind.FIND) findSummary(it, metric) + (it.rating.takeIf { r -> r > 0 }?.let { r -> " · $r/5" } ?: "") + (it.detector?.let { d -> " · $d" } ?: "") else it.kind.label
+                val site = if (it.kind == PinKind.FIND) com.brandonthomas.oldground.data.Sites.siteAt(data.sites, it.geo)?.name else null
+                val details = if (it.kind == PinKind.FIND) listOfNotNull(site, findSummary(it, metric)).joinToString(" · ") + (it.rating.takeIf { r -> r > 0 }?.let { r -> " · $r/5" } ?: "") + (it.detector?.let { d -> " · $d" } ?: "") else it.kind.label
                 Gpx.Waypoint(it.name, it.geo, listOf(details, it.note).filter { s -> s.isNotBlank() }.joinToString(" — "), Instant.ofEpochMilli(it.createdAt).toString())
             },
             data.tracks.mapNotNull { t ->
@@ -104,33 +100,20 @@ fun PinsScreen(nav: Nav) {
             .onFailure { message = "Couldn't share" to "No app on this device can receive the GPX file." }
     }
 
-    Column(Modifier.fillMaxSize().background(C.bg).statusBarsPadding().navigationBarsPadding()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            RoundButton({ nav.back() }, "Back") { GlyphIcon(Glyph.BACK, C.ink) }
-            Text("Pins & tracks", Modifier.weight(1f).padding(horizontal = 12.dp), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = C.ink)
-            Pill("Export GPX", { exportGpx() }, kind = "primary")
-        }
+    Column(Modifier.fillMaxSize()) {
         ScrollColumn(Modifier.padding(horizontal = 16.dp)) {
+            Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                SectionTitle("Pins (${data.pins.size})", Modifier.weight(1f))
+                Pill("Export GPX", { exportGpx() }, kind = "tint", small = true)
+                Spacer(Modifier.weight(1f))
                 Segmented(metric, listOf(false to "ft / mi", true to "m / km"), { v -> Repo.updateSettings { it.copy(metric = v) } }, Modifier.width(160.dp))
             }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FilterChip("All", null, filter == null) { filter = null }
-                for (k in PinKind.entries) {
+                for (k in PinKind.entries.filter { it != PinKind.FIND }) {
                     val n = data.pins.count { it.kind == k }
-                    FilterChip(if (n > 0) "${k.label} $n" else k.label, k.color, filter == k) { filter = k; material = null }
-                }
-            }
-            if (filter == PinKind.FIND) {
-                val counts = data.pins.filter { it.kind == PinKind.FIND }.mapNotNull { it.material }.groupingBy { it }.eachCount()
-                if (counts.isNotEmpty()) {
-                    Spacer(Modifier.height(6.dp))
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        SubChip("Any material", material == null) { material = null }
-                        for (m in com.brandonthomas.oldground.data.FIND_MATERIALS) counts[m]?.let { n -> SubChip("$m $n", material == m) { material = m } }
-                    }
+                    FilterChip(if (n > 0) "${k.label} $n" else k.label, k.color, filter == k) { filter = k }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -140,8 +123,7 @@ fun PinsScreen(nav: Nav) {
             }
             if (pins.isEmpty()) {
                 Text(
-                    if (data.pins.isEmpty()) "No pins yet. On the map, tap Pin to mark a home site, a find or a LiDAR feature."
-                    else "No pins of this kind.",
+                    "No pins here. Finds live under Sites and All finds; home sites, LiDAR features and permissions you pin show here.",
                     color = C.muted, modifier = Modifier.padding(vertical = 16.dp),
                 )
             }
@@ -150,7 +132,7 @@ fun PinsScreen(nav: Nav) {
                 val dir = here?.let { Mercator.compass(Mercator.bearing(it, p.geo)) }
                 Row(
                     Modifier.fillMaxWidth().card()
-                        .clickable { nav.go(Screen.Hunt(p.mapId?.takeIf { id -> Repo.map(id)?.aligned == true }, p.id)) }
+                        .clickable { openPin(nav, p) }
                         .padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -228,17 +210,4 @@ private fun FilterChip(label: String, color: String?, on: Boolean, onClick: () -
         if (color != null) Box(Modifier.size(10.dp).clip(CircleShape).background(hexColor(color)))
         Text(label, fontSize = 13.sp, color = if (on) Color.White else C.ink, fontWeight = FontWeight.Bold)
     }
-}
-
-@Composable
-private fun SubChip(label: String, on: Boolean, onClick: () -> Unit) {
-    Text(
-        label,
-        Modifier.clip(RoundedCornerShape(20.dp))
-            .background(if (on) C.accentSoft else C.panel)
-            .border(1.dp, if (on) C.accentSoft else C.line, RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 11.dp, vertical = 5.dp),
-        fontSize = 12.5.sp, color = if (on) C.accent else C.ink, fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold,
-    )
 }

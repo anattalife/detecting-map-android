@@ -150,7 +150,7 @@ fun HomeScreen(nav: Nav) {
                     Text(greeting, fontSize = 14.sp, color = C.muted, fontWeight = FontWeight.Medium)
                     Text("OldGround", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = C.ink, letterSpacing = (-0.5).sp)
                 }
-                RoundButton({ nav.go(Screen.Pins) }, "Pins and tracks") { GlyphIcon(Glyph.PIN, C.ink) }
+                RoundButton({ nav.go(Screen.Sites()) }, "Sites, finds and tracks") { GlyphIcon(Glyph.PIN, C.ink) }
             }
             Spacer(Modifier.height(16.dp))
 
@@ -228,7 +228,7 @@ fun HomeScreen(nav: Nav) {
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatCard("Offline areas", "${areas.size}", Modifier.weight(1f))
-                StatCard("Pins", "${data.pins.size}", Modifier.weight(1f), onClick = { nav.go(Screen.Pins) })
+                StatCard("Sites", "${data.sites.size}", Modifier.weight(1f), onClick = { nav.go(Screen.Sites()) })
             }
             if (areas.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))

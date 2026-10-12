@@ -130,6 +130,13 @@ object Repo {
     fun updatePin(id: String, fn: (Pin) -> Pin) = update { d -> d.copy(pins = d.pins.map { if (it.id == id) fn(it) else it }) }
     fun deletePin(id: String) = update { d -> d.copy(pins = d.pins.filter { it.id != id }) }
 
+    // ---------- sites ----------
+
+    fun addSite(site: Site) = update { it.copy(sites = listOf(site) + it.sites) }
+    fun updateSite(id: String, fn: (Site) -> Site) = update { d -> d.copy(sites = d.sites.map { if (it.id == id) fn(it) else it }) }
+    /** Removes the site only; its finds stay as pins. */
+    fun deleteSite(id: String) = update { d -> d.copy(sites = d.sites.filter { it.id != id }) }
+
     // ---------- tracks ----------
 
     private fun trackFile(id: String) = File(root, "tracks/$id.csv")

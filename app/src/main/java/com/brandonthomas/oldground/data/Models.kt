@@ -83,6 +83,27 @@ data class Pin(
     val geo get() = LngLat(lng, lat)
 }
 
+/**
+ * A place you detect, outlined on the map. Finds logged inside the outline belong to it,
+ * and each day you found something or recorded a track there is a visit.
+ */
+@Serializable
+data class Site(
+    val id: String,
+    val name: String,
+    val access: String = "Permission",
+    /** Outline corners as [lng, lat]. */
+    val outline: List<List<Double>> = emptyList(),
+    /** A photo of everything found here. */
+    val photo: String? = null,
+    val createdAt: Long,
+    val note: String = "",
+) {
+    val ring get() = outline.map { LngLat(it[0], it[1]) }
+}
+
+val SITE_ACCESS = listOf("Permission", "Public land", "My property", "Club hunt")
+
 val FIND_CATEGORIES = listOf("Coin", "Relic", "Button", "Jewelry", "Token", "Other")
 val FIND_MATERIALS = listOf("Copper", "Silver", "Gold", "Brass", "Lead", "Iron", "Other")
 
@@ -130,6 +151,7 @@ data class AppData(
     val maps: List<OldMap> = emptyList(),
     val pins: List<Pin> = emptyList(),
     val tracks: List<TrackMeta> = emptyList(),
+    val sites: List<Site> = emptyList(),
     /** The track being recorded, if any. */
     val recording: String? = null,
     val settings: Settings = Settings(),

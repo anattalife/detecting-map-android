@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -42,6 +43,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,6 +70,10 @@ import com.brandonthomas.oldground.data.LidarStyle
 import com.brandonthomas.oldground.data.OldMap
 import com.brandonthomas.oldground.data.Photos
 import com.brandonthomas.oldground.data.Pin
+import com.brandonthomas.oldground.data.SITE_ACCESS
+import com.brandonthomas.oldground.data.Site
+import com.brandonthomas.oldground.data.Sites
+import com.brandonthomas.oldground.Screen
 import com.brandonthomas.oldground.data.Repo
 import com.brandonthomas.oldground.data.Settings
 import com.brandonthomas.oldground.data.Slot
@@ -131,7 +137,15 @@ class ScanFrame(val map: OldMap, val georef: Georef) {
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = null, debug: String? = null) {
+fun HuntScreen(
+    nav: Nav, mapId: String?, pinId: String?, startMode: String? = null, debug: String? = null,
+    /** "new" to outline a new site, or a site's id to redraw its outline. */
+    draw: String? = null,
+    /** Open on this site. */
+    siteId: String? = null,
+    /** Start recording a track as soon as the map opens (Start a visit). */
+    startVisit: Boolean = false,
+) {
     val ctx = LocalContext.current
     val density = LocalDensity.current
     val data by Repo.data.collectAsState()
@@ -157,6 +171,13 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
     var landInfo by remember { mutableStateOf<PublicLand.Info?>(null) }
     var cardPin by remember { mutableStateOf<String?>(null) }
     var guideTo by remember { mutableStateOf<String?>(null) }
+    // Outlining a site: "new" or the id of the site being redrawn.
+    val redraw = draw?.takeIf { it != "new" }?.let { id -> data.sites.firstOrNull { it.id == id } }
+    var drawing by remember { mutableStateOf(draw) }
+    val corners = remember { mutableStateListOf<LngLat>().apply { redraw?.let { addAll(it.ring) } } }
+    var siteName by remember { mutableStateOf(redraw?.name ?: "") }
+    var siteAccess by remember { mutableStateOf(redraw?.access ?: SITE_ACCESS.first()) }
+    var savedNote by remember { mutableStateOf<String?>(null) }
     // Used by the automated screenshots to open a sheet or dialog.
     LaunchedEffect(debug) {
         kotlinx.coroutines.delay(1500)
@@ -166,7 +187,17 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
             "pin" -> Repo.current.pins.firstOrNull { it.id == pinId }?.let { p -> draft = PinDraft.of(p) }
             "card" -> cardPin = pinId
             "new" -> Repo.current.pins.firstOrNull { it.id == pinId }?.let { p -> draft = PinDraft(p.geo, "", com.brandonthomas.oldground.data.PinKind.FIND, "", null) }
+
         }
+    }
+    LaunchedEffect(startVisit) {
+        if (startVisit) {
+            if (Repo.current.recording == null) TrackService.start(ctx)
+            follow = true
+        }
+    }
+    LaunchedEffect(savedNote) {
+        if (savedNote != null) { kotlinx.coroutines.delay(4000); savedNote = null }
     }
     val camMemory = remember { arrayOfNulls<Cam>(1) }
     val userTookOver = remember { BooleanArray(1) }
@@ -190,21 +221,40 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
     }
 
     val focus = pinId?.let { id -> data.pins.firstOrNull { it.id == id } }
+    val focusSite = (siteId ?: redraw?.id)?.let { id -> data.sites.firstOrNull { it.id == id } }
+    val conf = LocalConfiguration.current
     val initial = remember {
-        val c = focus?.geo ?: map?.anchors?.takeIf { it.isNotEmpty() }?.let { a ->
-            LngLat(a.map { it.lng }.average(), a.map { it.lat }.average())
-        } ?: LocationHub.fix.value?.geo ?: LngLat(-82.99, 39.96)
-        Cam(c, 16.0, 0.0)
+        val siteBounds = focusSite?.let { Sites.bounds(it.ring) }
+        if (focus == null && siteBounds != null) {
+            Cam(Sites.center(focusSite.ring)!!, Sites.fitZoom(siteBounds, conf.screenWidthDp.toFloat(), conf.screenHeightDp * 0.55f), 0.0)
+        } else {
+            val c = focus?.geo ?: map?.anchors?.takeIf { it.isNotEmpty() }?.let { a ->
+                LngLat(a.map { it.lng }.average(), a.map { it.lat }.average())
+            } ?: LocationHub.fix.value?.geo ?: LngLat(-82.99, 39.96)
+            Cam(c, if (draw == "new") 17.5 else 16.0, 0.0)
+        }
     }
     fun startCam() = camMemory[0] ?: initial
 
     // Maps currently on screen, with how to place real-world positions on each.
     val live = remember { mutableStateMapOf<String, Pair<OgMap, ScanFrame?>>() }
 
+    // Screenshots: four corners as if tapped, on open ground next to the seeded sites.
+    LaunchedEffect(debug) {
+        if (debug != "drawdemo") return@LaunchedEffect
+        kotlinx.coroutines.delay(1500)
+        val c = LngLat(-82.99080, 39.96060)
+        for ((_, p) in live) p.first.setCamera(c, 17.4)
+        corners.clear()
+        corners.addAll(listOf(LngLat(c.lng - 0.0010, c.lat + 0.0006), LngLat(c.lng + 0.0008, c.lat + 0.0008), LngLat(c.lng + 0.0010, c.lat - 0.0005), LngLat(c.lng - 0.0007, c.lat - 0.0007)))
+        siteName = "Hendricks pasture"
+    }
+
     // ---- shared map behaviour ----
     fun onTapAt(scan: ScanFrame?): (LngLat, String?, Map<String, String>?) -> Unit = { at, hit, land ->
         val geo = if (scan != null) scan.toGeo(at) else at
         when {
+            drawing != null -> if (geo != null) corners.add(geo)
             pinMode && geo != null -> {
                 pinMode = false
                 draft = PinDraft(geo, "", com.brandonthomas.oldground.data.PinKind.FIND, "", null)
@@ -415,7 +465,12 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
         // ---- keep data on every map current ----
         for ((_, pair) in live) {
             val (m, scan) = pair
-            MapDataSync(m, scan, data.pins, trackPts, fix, settings.publicLand, guideTo?.let { id -> data.pins.firstOrNull { it.id == id } })
+            MapDataSync(
+                m, scan, data.pins, trackPts, fix, settings.publicLand, guideTo?.let { id -> data.pins.firstOrNull { it.id == id } },
+                // While redrawing, the old outline is hidden so only the new one shows.
+                if (drawing != null && redraw != null) data.sites.filter { it.id != redraw.id } else data.sites,
+                if (drawing != null) corners.toList() else emptyList(),
+            )
         }
 
         // ---- follow me ----
@@ -443,8 +498,17 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            RoundButton({ nav.back() }, "Back") { GlyphIcon(Glyph.BACK, C.ink) }
-            Segmented(mode, Mode.entries.map { it to it.label }, { mode = it }, Modifier.weight(1f), dark = true)
+            if (drawing != null) {
+                RoundButton({ if (draw != null) nav.back() else { drawing = null; corners.clear() } }, "Cancel") { GlyphIcon(Glyph.CLOSE, C.ink) }
+                Text(
+                    if (corners.size < 3) "Tap each corner of the field or yard" else "Keep tapping corners, or save",
+                    Modifier.weight(1f).card(radius = 999).background(C.panel).padding(horizontal = 16.dp, vertical = 13.dp),
+                    fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = C.ink, maxLines = 1,
+                )
+            } else {
+                RoundButton({ nav.back() }, "Back") { GlyphIcon(Glyph.BACK, C.ink) }
+                Segmented(mode, Mode.entries.map { it to it.label }, { mode = it }, Modifier.weight(1f), dark = true)
+            }
         }
 
         // ---- status toasts ----
@@ -456,6 +520,14 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
         ) {
             if (building != null) Toast("Preparing old map… ${(building * 100).toInt()}%")
             download?.let { Toast("Saving area offline… $it%") }
+            savedNote?.let { Toast(it, color = C.accent) }
+            if (drawing == null && !pinMode) fix?.let { f -> Sites.siteAt(data.sites, f.geo) }?.let { here ->
+                Text(
+                    "In ${here.name}",
+                    Modifier.card(radius = 999).background(C.panel).clickable { nav.go(Screen.Site(here.id)) }.padding(horizontal = 14.dp, vertical = 7.dp),
+                    color = C.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                )
+            }
             if (pinMode) Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Toast("Tap the map to place a pin", color = C.accent)
                 Pill("Pin my spot", {
@@ -469,7 +541,27 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
 
         // ---- bottom controls ----
         val recordingSince = data.recording?.let { r -> data.tracks.firstOrNull { it.id == r }?.startedAt }
-        BottomPanel(
+        if (drawing != null) DrawPanel(
+            corners.size, Sites.areaM2(corners), settings.metric, siteName, { siteName = it }, siteAccess, { siteAccess = it },
+            editing = redraw != null,
+            onUndo = { if (corners.isNotEmpty()) corners.removeAt(corners.lastIndex) },
+            onSave = {
+                val outline = corners.map { listOf(it.lng, it.lat) }
+                val name = siteName.trim().ifBlank { "Site ${data.sites.size + 1}" }
+                if (redraw != null) {
+                    Repo.updateSite(redraw.id) { it.copy(name = name, access = siteAccess, outline = outline) }
+                    nav.back()
+                } else {
+                    Repo.addSite(Site(Repo.newId(), name, siteAccess, outline, createdAt = System.currentTimeMillis()))
+                    drawing = null
+                    corners.clear()
+                    savedNote = "$name saved. Finds inside it go there."
+                    if (data.recording == null) TrackService.start(ctx)
+                    follow = true
+                }
+            },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) else BottomPanel(
             mode, settings, follow, pinMode, recordingSince, fix, data.pins,
             topLabel = slot(Slot.OVERLAY_TOP).label,
             onLayers = { moreOpen = true },
@@ -548,7 +640,7 @@ fun HuntScreen(nav: Nav, mapId: String?, pinId: String?, startMode: String? = nu
         )
     }
     draft?.let { d ->
-        PinDialog(d, fix?.let { Mercator.distanceMeters(it.geo, d.geo) }, settings.metric, settings.lastDetector,
+        PinDialog(d, fix?.let { Mercator.distanceMeters(it.geo, d.geo) }, settings.metric, settings.lastDetector, Sites.siteAt(data.sites, d.geo)?.name,
             onCancel = { draft = null },
             onDelete = d.editing?.let { id -> { Repo.deletePin(id); if (guideTo == id) guideTo = null; draft = null } },
         ) { s ->
@@ -602,7 +694,10 @@ private fun LiveMap(name: String, m: OgMap, scan: ScanFrame?, live: MutableMap<S
 
 /** Pins, tracks and the GPS dot on one map, kept current. */
 @Composable
-private fun MapDataSync(m: OgMap, scan: ScanFrame?, pins: List<Pin>, tracks: Map<String, List<TrackPt>>, fix: Fix?, publicLand: Boolean, guided: Pin?) {
+private fun MapDataSync(
+    m: OgMap, scan: ScanFrame?, pins: List<Pin>, tracks: Map<String, List<TrackPt>>, fix: Fix?, publicLand: Boolean, guided: Pin?,
+    sites: List<Site> = emptyList(), drawCorners: List<LngLat> = emptyList(),
+) {
     val ctx = LocalContext.current
     val markerPx = with(LocalDensity.current) { 40.dp.roundToPx() }
     // Public land on real-world maps, refreshed whenever the map stops moving.
@@ -637,6 +732,8 @@ private fun MapDataSync(m: OgMap, scan: ScanFrame?, pins: List<Pin>, tracks: Map
     }
     val place: (LngLat) -> LngLat? = { g -> if (scan == null) g else scan.place(g) }
     val placeLine: (LngLat) -> LngLat? = { g -> if (scan == null) g else scan.placeAny(g) }
+    LaunchedEffect(m, scan, sites) { m.setData(Data.SITES, Features.sites(sites, placeLine)) }
+    LaunchedEffect(m, scan, drawCorners) { m.setData(Data.DRAFT, Features.draft(drawCorners, placeLine)) }
     LaunchedEffect(m, scan, pins) {
         // Round photo markers first, so photo pins never show without their picture.
         val firsts = pins.mapNotNull { it.photos.firstOrNull() }.distinct().filter { !m.hasImage(Features.photoImageId(it)) }
@@ -758,6 +855,52 @@ private fun BottomPanel(
                 else TrackService.start(ctx)
             }, Modifier.weight(1f), kind = "danger")
             ToolButton(if (follow) "Following" else "Follow", Glyph.FOLLOW, onLocate, Modifier.weight(1f), kind = if (follow) "primary" else "soft")
+        }
+    }
+}
+
+/** The panel shown while outlining a site. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DrawPanel(
+    cornerCount: Int, areaM2: Double, metric: Boolean,
+    name: String, onName: (String) -> Unit, access: String, onAccess: (String) -> Unit,
+    editing: Boolean, onUndo: () -> Unit, onSave: () -> Unit, modifier: Modifier,
+) {
+    val shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
+    val fieldColors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(unfocusedBorderColor = C.line, focusedBorderColor = C.accent)
+    Column(
+        modifier.fillMaxWidth()
+            .shadow(16.dp, shape, ambientColor = Color(0x5514201D), spotColor = Color(0x5514201D))
+            .clip(shape).background(C.panel).navigationBarsPadding().imePadding()
+            .padding(start = 16.dp, end = 16.dp, bottom = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(Modifier.fillMaxWidth().height(20.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(width = 40.dp, height = 5.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFFD5DBD9)))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(if (editing) "Redraw outline" else "New site", Modifier.weight(1f), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = C.ink)
+            Text(
+                if (cornerCount < 3) "$cornerCount of 3+ corners" else "$cornerCount corners · ${Sites.formatArea(areaM2, metric)}",
+                Modifier.clip(RoundedCornerShape(50)).background(C.accentSoft).padding(horizontal = 10.dp, vertical = 5.dp),
+                color = C.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+            )
+        }
+        LabeledField("Name") {
+            androidx.compose.material3.OutlinedTextField(
+                name, onName, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = fieldColors,
+                placeholder = { Text("e.g. Miller homestead") },
+            )
+        }
+        LabeledField("Access") {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (a in SITE_ACCESS) SoftChip(a, a == access) { onAccess(a) }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Pill("Undo corner", onUndo, Modifier.weight(1f), kind = "soft", enabled = cornerCount > 0)
+            Pill(if (editing) "Save outline" else "Save and start exploring", onSave, Modifier.weight(1.4f), kind = "primary", enabled = cornerCount >= 3)
         }
     }
 }

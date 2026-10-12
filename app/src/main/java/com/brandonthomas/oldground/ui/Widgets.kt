@@ -196,7 +196,7 @@ fun RoundButton(onClick: () -> Unit, label: String, modifier: Modifier = Modifie
 }
 
 /** Small line icons drawn in code (no icon library needed). */
-enum class Glyph { BACK, LAYERS, PIN, RECORD, STOP, FOLLOW, MORE, CHEVRON, PLUS, LIST, CAMERA, IMAGE }
+enum class Glyph { BACK, LAYERS, PIN, RECORD, STOP, FOLLOW, MORE, CHEVRON, PLUS, LIST, CAMERA, IMAGE, CLOSE }
 
 @Composable
 fun GlyphIcon(g: Glyph, color: Color, modifier: Modifier = Modifier.size(22.dp)) {
@@ -231,6 +231,10 @@ fun GlyphIcon(g: Glyph, color: Color, modifier: Modifier = Modifier.size(22.dp))
             Glyph.PLUS -> {
                 drawLine(color, Offset(w * 0.5f, h * 0.18f), Offset(w * 0.5f, h * 0.82f), sw, StrokeCap.Round)
                 drawLine(color, Offset(w * 0.18f, h * 0.5f), Offset(w * 0.82f, h * 0.5f), sw, StrokeCap.Round)
+            }
+            Glyph.CLOSE -> {
+                drawLine(color, Offset(w * 0.26f, h * 0.26f), Offset(w * 0.74f, h * 0.74f), sw, StrokeCap.Round)
+                drawLine(color, Offset(w * 0.74f, h * 0.26f), Offset(w * 0.26f, h * 0.74f), sw, StrokeCap.Round)
             }
             Glyph.CAMERA -> {
                 drawPath(Path().apply {

@@ -62,7 +62,7 @@
    "lat": 39.96142,
    "note": "House on the 1875 atlas, gone by 1912.",
    "mapId": "ci1",
-   "createdAt": 1760000000000
+   "createdAt": 1788274800000
   },
   {
    "id": "p2",
@@ -72,7 +72,7 @@
    "lat": 39.96115,
    "note": "By the old lane, near the Miller house.",
    "mapId": "ci1",
-   "createdAt": 1760100000000,
+   "createdAt": 1791731400000,
    "photos": [
     "ci-cent1.jpg",
     "ci-cent2.jpg"
@@ -91,7 +91,7 @@
    "lng": -82.98771,
    "lat": 39.95811,
    "note": "OK to hunt after harvest.",
-   "createdAt": 1760200000000
+   "createdAt": 1788361200000
   },
   {
    "id": "p4",
@@ -100,7 +100,7 @@
    "lng": -82.9856,
    "lat": 39.95595,
    "note": "Ditch shows on Stretched LiDAR.",
-   "createdAt": 1760300000000
+   "createdAt": 1788447600000
   },
   {
    "id": "p5",
@@ -110,7 +110,7 @@
    "lat": 39.96072,
    "note": "Edge of the yard, under the maple.",
    "mapId": "ci1",
-   "createdAt": 1760400000000,
+   "createdAt": 1791736200000,
    "photos": [
     "ci-dime.jpg"
    ],
@@ -125,11 +125,11 @@
    "id": "p6",
    "name": "Eagle coat button",
    "kind": "FIND",
-   "lng": -82.9936,
-   "lat": 39.96118,
+   "lng": -82.994,
+   "lat": 39.961,
    "note": "",
    "mapId": "ci1",
-   "createdAt": 1760500000000,
+   "createdAt": 1791123600000,
    "photos": [
     "ci-button.jpg"
    ],
@@ -144,10 +144,10 @@
    "id": "p7",
    "name": "Flat button",
    "kind": "FIND",
-   "lng": -82.9909,
-   "lat": 39.9604,
+   "lng": -82.988,
+   "lat": 39.9585,
    "note": "",
-   "createdAt": 1760600000000,
+   "createdAt": 1790614800000,
    "category": "Button",
    "material": "Copper",
    "depthIn": 4.0,
@@ -161,7 +161,7 @@
    "lng": -83.028,
    "lat": 39.945,
    "note": "",
-   "createdAt": 1760700000000,
+   "createdAt": 1786816800000,
    "photos": [
     "ci-ring.jpg"
    ],
@@ -171,16 +171,173 @@
    "vdi": 41,
    "detector": "XP Deus II · Program 4 · Sens 92",
    "rating": 5
+  },
+  {
+   "id": "p9",
+   "name": "1919 wheat cent",
+   "kind": "FIND",
+   "lng": -82.995,
+   "lat": 39.9606,
+   "note": "",
+   "createdAt": 1791738300000,
+   "category": "Coin",
+   "material": "Copper",
+   "depthIn": 4.0,
+   "vdi": 77,
+   "detector": "XP Deus II · Program 4 · Sens 92",
+   "rating": 2
+  },
+  {
+   "id": "p10",
+   "name": "Seated Liberty dime",
+   "kind": "FIND",
+   "lng": -82.9948,
+   "lat": 39.9609,
+   "note": "Near the old well.",
+   "createdAt": 1791124800000,
+   "photos": [
+    "ci-cent2.jpg"
+   ],
+   "category": "Coin",
+   "material": "Silver",
+   "depthIn": 8.0,
+   "vdi": 84,
+   "detector": "XP Deus II · Program 4 · Sens 92",
+   "rating": 5
+  },
+  {
+   "id": "p11",
+   "name": "Musket ball",
+   "kind": "FIND",
+   "lng": -82.9955,
+   "lat": 39.9602,
+   "note": "",
+   "createdAt": 1789920000000,
+   "category": "Relic",
+   "material": "Lead",
+   "depthIn": 6.0,
+   "vdi": 48,
+   "detector": "XP Deus II · Program 4 · Sens 92",
+   "rating": 3
+  },
+  {
+   "id": "p12",
+   "name": "Store token",
+   "kind": "FIND",
+   "lng": -82.987,
+   "lat": 39.9579,
+   "note": "",
+   "createdAt": 1790619000000,
+   "photos": [
+    "ci-button.jpg"
+   ],
+   "category": "Token",
+   "material": "Brass",
+   "depthIn": 5.0,
+   "vdi": 60,
+   "detector": "XP Deus II · Program 4 · Sens 92",
+   "rating": 4
+  },
+  {
+   "id": "p13",
+   "name": "Cap gun piece",
+   "kind": "FIND",
+   "lng": -82.97,
+   "lat": 39.97,
+   "note": "",
+   "createdAt": 1785427200000,
+   "category": "Relic",
+   "material": "Iron",
+   "depthIn": 3.0,
+   "detector": "XP Deus II · Program 4 · Sens 92",
+   "rating": 1
   }
  ],
  "tracks": [
   {
    "id": "t1",
    "name": "Hunt Oct 4, 2026",
-   "startedAt": 1759590000000
+   "startedAt": 1791126000000
   }
  ],
  "settings": {
   "lastDetector": "XP Deus II · Program 4 · Sens 92"
- }
+ },
+ "sites": [
+  {
+   "id": "s1",
+   "name": "Miller homestead",
+   "access": "Permission",
+   "outline": [
+    [
+     -82.9964,
+     39.96175
+    ],
+    [
+     -82.9933,
+     39.9616
+    ],
+    [
+     -82.9932,
+     39.96
+    ],
+    [
+     -82.9961,
+     39.95995
+    ]
+   ],
+   "photo": "ci-tray1.jpg",
+   "createdAt": 1788274800000,
+   "note": "Ask for Ruth at the farmhouse."
+  },
+  {
+   "id": "s2",
+   "name": "Fulton farm",
+   "access": "Permission",
+   "outline": [
+    [
+     -82.989,
+     39.959
+    ],
+    [
+     -82.9862,
+     39.95905
+    ],
+    [
+     -82.98615,
+     39.9572
+    ],
+    [
+     -82.9889,
+     39.95715
+    ]
+   ],
+   "photo": "ci-tray2.jpg",
+   "createdAt": 1788361200000
+  },
+  {
+   "id": "s3",
+   "name": "Wyman Woods Park",
+   "access": "Public land",
+   "outline": [
+    [
+     -83.029,
+     39.9458
+    ],
+    [
+     -83.027,
+     39.9459
+    ],
+    [
+     -83.0269,
+     39.9442
+    ],
+    [
+     -83.0291,
+     39.9441
+    ]
+   ],
+   "createdAt": 1786806000000
+  }
+ ]
 }

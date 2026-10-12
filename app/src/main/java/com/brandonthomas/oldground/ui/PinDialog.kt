@@ -109,6 +109,7 @@ fun PinDialog(
     distance: Double?,
     metric: Boolean,
     lastDetector: String = "",
+    siteName: String? = null,
     onCancel: () -> Unit,
     onDelete: (() -> Unit)?,
     onSave: (PinDraft) -> Unit,
@@ -198,27 +199,27 @@ fun PinDialog(
                 }
                 if (busy) Text("Adding photo…", color = C.muted, fontSize = 12.sp)
 
-                Field(if (kind == PinKind.FIND) "What is it" else "Name") {
+                LabeledField(if (kind == PinKind.FIND) "What is it" else "Name") {
                     OutlinedTextField(name, { name = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = fieldColors,
                         placeholder = { Text(if (kind == PinKind.FIND) "e.g. 1864 Indian Head cent" else "e.g. Miller homestead") })
                 }
-                Field("Pin type") {
+                LabeledField("Pin type") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        for (k in PinKind.entries) Chip(k.label, k == kind, dot = k.color) { kind = k }
+                        for (k in PinKind.entries) SoftChip(k.label, k == kind, dot = k.color) { kind = k }
                     }
                 }
                 if (kind == PinKind.FIND) {
-                    Field("Category") {
+                    LabeledField("Category") {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            for (c in FIND_CATEGORIES) Chip(c, c == category) { category = if (category == c) null else c }
+                            for (c in FIND_CATEGORIES) SoftChip(c, c == category) { category = if (category == c) null else c }
                         }
                     }
-                    Field("Material") {
+                    LabeledField("Material") {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            for (m in FIND_MATERIALS) Chip(m, m == material) { material = if (material == m) null else m }
+                            for (m in FIND_MATERIALS) SoftChip(m, m == material) { material = if (material == m) null else m }
                         }
                     }
-                    Field("Depth") {
+                    LabeledField("Depth") {
                         val steps = if (metric) listOf(5, 10, 15, 20, 25).map { it to it / 2.54 } else listOf(2, 4, 6, 8, 10).map { it to it.toDouble() }
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             for ((i, pair) in steps.withIndex()) {
@@ -237,11 +238,11 @@ fun PinDialog(
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-                        Field("VDI", Modifier.width(110.dp)) {
+                        LabeledField("VDI", Modifier.width(110.dp)) {
                             OutlinedTextField(vdi, { v -> vdi = v.filter { it.isDigit() || it == '-' }.take(4) }, singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), shape = RoundedCornerShape(10.dp), colors = fieldColors)
                         }
-                        Field("Rating", Modifier.weight(1f)) {
+                        LabeledField("Rating", Modifier.weight(1f)) {
                             Row {
                                 for (i in 1..5) Text(
                                     "★", Modifier.clip(CircleShape).clickable { rating = if (rating == i) 0 else i }.padding(horizontal = 3.dp, vertical = 4.dp),
@@ -265,9 +266,12 @@ fun PinDialog(
                             placeholder = { Text("e.g. XP Deus II · Program 4 · Sens 92") }, shape = RoundedCornerShape(10.dp), colors = fieldColors)
                     }
                 }
-                Field("Notes") {
+                LabeledField("Notes") {
                     OutlinedTextField(note, { note = it }, minLines = 2, maxLines = 5, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = fieldColors)
                 }
+                if (kind == PinKind.FIND && siteName != null) Text(
+                    "Saved to $siteName", Modifier.fillMaxWidth(), color = C.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                )
                 Text(
                     DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(d.createdAt)) +
                         " · " + String.format(Locale.US, "%.5f, %.5f", d.geo.lat, d.geo.lng) +
@@ -291,7 +295,7 @@ fun PinDialog(
 }
 
 @Composable
-private fun Field(label: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun LabeledField(label: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = C.muted)
         content()
@@ -299,7 +303,7 @@ private fun Field(label: String, modifier: Modifier = Modifier, content: @Compos
 }
 
 @Composable
-private fun Chip(label: String, on: Boolean, dot: String? = null, onClick: () -> Unit) {
+fun SoftChip(label: String, on: Boolean, dot: String? = null, onClick: () -> Unit) {
     Row(
         Modifier.clip(RoundedCornerShape(50)).background(if (on) C.accent else C.soft).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,

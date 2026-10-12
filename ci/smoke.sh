@@ -50,12 +50,17 @@ shot FINDEDIT --es openMap none --es mode OVERLAY --es pin p2 --es debug pin
 shot FINDNEW --es openMap none --es mode OVERLAY --es pin p5 --es debug new
 shot FINDCARD --es openMap none --es mode OVERLAY --es pin p2 --es debug card
 shot FINDMAP --es openMap none --es mode OVERLAY --es pin p6 --es debug none
-shot DRIVEGEO --es openMap none --es mode DRIVE --es pin p6 --es debug none
-shot DRIVEGEO2 --es openMap none --es mode DRIVE
 shot FINDOLD --es openMap ci1 --es mode OVERLAY --es pin p6 --es debug none
 shot ANCHORS --es screen align --es openMap ci1
-shot PINS --es screen pins
-shot PINSFINDS --es screen pins --es debug finds
+shot SITES --es screen sites
+shot ALLFINDS --es screen sites --es debug finds
+shot PINSTAB --es screen sites --es debug pins
+shot SITE --es screen site --es site s1
+shot SITENOPHOTO --es screen site --es site s3
+shot SITEEDIT --es screen site --es site s1 --es debug edit
+shot VISIT --es screen visit --es site s1 --es day 2026-10-11
+shot DRAW --es openMap none --es mode OVERLAY --es draw new --es debug drawdemo
+shot MAPSITE --es openMap none --es mode OVERLAY --es site s1 --es debug none
 adb shell "run-as $P cat files/last-crash.txt" > $OUT/last-crash.txt 2>/dev/null || true
 adb logcat -d -b crash > $OUT/crash.txt
 adb logcat -d -v brief AndroidRuntime:E OldGround:V libc:F DEBUG:F maplibre:E Mbgl:E '*:S' > $OUT/errors.txt

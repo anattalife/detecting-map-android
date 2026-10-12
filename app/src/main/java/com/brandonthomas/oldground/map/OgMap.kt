@@ -39,7 +39,7 @@ sealed class Base {
 }
 
 /** The data drawn on top of a map, in drawing order. */
-enum class Data { LAND, TRACKS, GUIDE, MESH, ANCHORS, PINS, GHOST, GPS }
+enum class Data { LAND, SITES, TRACKS, GUIDE, MESH, ANCHORS, PINS, DRAFT, GHOST, GPS }
 
 data class Cam(val center: LngLat, val zoom: Double, val bearing: Double)
 
@@ -253,6 +253,32 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
                 )
                 s.addLayer(FillLayer("og-land-fill", sid).withProperties(PropertyFactory.fillColor(color), PropertyFactory.fillOpacity(0.16f)))
                 s.addLayer(LineLayer("og-land-line", sid).withProperties(PropertyFactory.lineColor(color), PropertyFactory.lineWidth(2f), PropertyFactory.lineOpacity(0.9f)))
+            }
+            Data.SITES -> {
+                s.addLayer(FillLayer("og-sites-fill", sid).withProperties(PropertyFactory.fillColor("#0f766e"), PropertyFactory.fillOpacity(0.10f)))
+                s.addLayer(LineLayer("og-sites-halo", sid).withProperties(PropertyFactory.lineColor("#ffffff"), PropertyFactory.lineWidth(4.5f), PropertyFactory.lineOpacity(0.8f)))
+                s.addLayer(LineLayer("og-sites-line", sid).withProperties(PropertyFactory.lineColor("#0f766e"), PropertyFactory.lineWidth(2.5f)))
+                s.addLayer(
+                    SymbolLayer("og-sites-label", sid).withProperties(
+                        PropertyFactory.textField(get("name")), PropertyFactory.textFont(arrayOf(Sources.FONT)), PropertyFactory.textSize(12f),
+                        PropertyFactory.textColor("#0b5a54"), PropertyFactory.textHaloColor("#ffffff"), PropertyFactory.textHaloWidth(1.6f),
+                        PropertyFactory.symbolPlacement(Property.SYMBOL_PLACEMENT_POINT), PropertyFactory.textOptional(true),
+                    ),
+                )
+            }
+            Data.DRAFT -> {
+                val isCorner = Expression.eq(Expression.geometryType(), Expression.literal("Point"))
+                s.addLayer(FillLayer("og-draft-fill", sid).withProperties(PropertyFactory.fillColor("#0f766e"), PropertyFactory.fillOpacity(0.22f)).withFilter(Expression.eq(Expression.geometryType(), Expression.literal("Polygon"))))
+                s.addLayer(LineLayer("og-draft-halo", sid).withProperties(PropertyFactory.lineColor("#ffffff"), PropertyFactory.lineWidth(5f)).withFilter(Expression.not(isCorner)))
+                s.addLayer(LineLayer("og-draft-line", sid).withProperties(PropertyFactory.lineColor("#0f766e"), PropertyFactory.lineWidth(3f), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND)).withFilter(Expression.not(isCorner)))
+                s.addLayer(
+                    CircleLayer("og-draft-corner", sid).withProperties(
+                        PropertyFactory.circleRadius(Expression.switchCase(Expression.has("last"), Expression.literal(10f), Expression.literal(8f))),
+                        PropertyFactory.circleColor(Expression.switchCase(Expression.has("last"), Expression.color(android.graphics.Color.parseColor("#0f766e")), Expression.color(android.graphics.Color.WHITE))),
+                        PropertyFactory.circleStrokeColor(Expression.switchCase(Expression.has("last"), Expression.color(android.graphics.Color.WHITE), Expression.color(android.graphics.Color.parseColor("#0f766e")))),
+                        PropertyFactory.circleStrokeWidth(3f),
+                    ).withFilter(isCorner),
+                )
             }
             Data.GUIDE -> s.addLayer(
                 LineLayer("og-guide", sid).withProperties(

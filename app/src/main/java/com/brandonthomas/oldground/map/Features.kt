@@ -1,6 +1,7 @@
 package com.brandonthomas.oldground.map
 
 import com.brandonthomas.oldground.data.Pin
+import com.brandonthomas.oldground.data.Site
 import com.brandonthomas.oldground.data.TrackPt
 import com.brandonthomas.oldground.geo.LngLat
 import com.brandonthomas.oldground.location.Fix
@@ -8,6 +9,7 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
+import org.maplibre.geojson.Polygon
 
 /**
  * Builds map features. [place] turns a real-world position into the map's own frame:
@@ -28,6 +30,31 @@ object Features {
                 p.photos.firstOrNull()?.let { addStringProperty("photo", photoImageId(it)) }
             }
         })
+
+    private fun ring(pts: List<LngLat>) = (pts + pts.first()).map(::pt)
+
+    /** Site outlines (with the name as a label). */
+    fun sites(sites: List<Site>, place: (LngLat) -> LngLat?): FeatureCollection =
+        FeatureCollection.fromFeatures(sites.mapNotNull { s ->
+            val r = s.ring.mapNotNull(place)
+            if (r.size < 3 || r.size != s.ring.size) return@mapNotNull null
+            Feature.fromGeometry(Polygon.fromLngLats(listOf(ring(r)))).apply {
+                addStringProperty("id", s.id)
+                addStringProperty("name", s.name)
+            }
+        })
+
+    /** An outline being drawn: the shape so far plus its corners (the newest one marked). */
+    fun draft(corners: List<LngLat>, place: (LngLat) -> LngLat?): FeatureCollection {
+        val c = corners.mapNotNull(place)
+        val f = ArrayList<Feature>()
+        when {
+            c.size >= 3 -> f.add(Feature.fromGeometry(Polygon.fromLngLats(listOf(ring(c)))))
+            c.size == 2 -> f.add(Feature.fromGeometry(LineString.fromLngLats(c.map(::pt))))
+        }
+        c.forEachIndexed { i, g -> f.add(Feature.fromGeometry(pt(g)).apply { if (i == c.lastIndex) addBooleanProperty("last", true) }) }
+        return FeatureCollection.fromFeatures(f)
+    }
 
     /** Map image id for a pin's first photo. */
     fun photoImageId(photo: String) = "pin-photo-$photo"
