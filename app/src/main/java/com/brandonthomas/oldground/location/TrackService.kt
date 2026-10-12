@@ -81,6 +81,8 @@ class TrackService : Service() {
         wake?.let { if (it.isHeld) it.release() }
         wake = null
         Repo.stopRecording()
+        // Stopping from the notification ends the visit too.
+        Repo.finishVisit()
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -104,11 +106,11 @@ class TrackService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Recording your track")
-            .setContentText("OldGround is recording your track.")
+            .setContentTitle("Visit in progress")
+            .setContentText("OldGround is recording your path for this visit.")
             .setOngoing(true)
             .setContentIntent(open)
-            .addAction(0, "Stop", stop)
+            .addAction(0, "End visit", stop)
             .build()
     }
 

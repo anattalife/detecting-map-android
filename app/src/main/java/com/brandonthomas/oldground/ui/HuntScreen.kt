@@ -279,8 +279,8 @@ fun HuntScreen(
             }
             r.draw == "new" -> LocationHub.fix.value?.let { flyTo(it.geo, 17.5) }
         }
-        if (r.startVisit) {
-            if (Repo.current.recording == null) TrackService.start(ctx)
+        if (r.startVisit && r.siteId != null) {
+            if (Repo.activeVisit?.siteId != r.siteId) com.brandonthomas.oldground.location.VisitControl.start(ctx, r.siteId)
             follow = true
         }
         // Used by the automated screenshots to open a sheet or dialog.
@@ -623,17 +623,18 @@ fun HuntScreen(
                     corners.clear()
                     nav.tab(com.brandonthomas.oldground.Tab.SITES)
                 } else {
-                    Repo.addSite(Site(Repo.newId(), name, siteAccess, outline, createdAt = System.currentTimeMillis()))
+                    val id = Repo.newId()
+                    Repo.addSite(Site(id, name, siteAccess, outline, createdAt = System.currentTimeMillis()))
                     drawing = null
                     corners.clear()
-                    savedNote = "$name saved. Finds inside it go there."
-                    if (data.recording == null) TrackService.start(ctx)
+                    savedNote = "$name saved. Your visit has started."
+                    com.brandonthomas.oldground.location.VisitControl.start(ctx, id)
                     follow = true
                 }
             },
             modifier = Modifier.align(Alignment.BottomCenter),
         ) else MapControls(
-            settings, follow, pinMode, recordingSince, fix, data.pins, data.sites,
+            settings, follow, pinMode, recordingSince, fix, data.pins, data.sites, data.visits.lastOrNull { it.endedAt == null },
             // + Find: tap where you found it, or use your GPS spot.
             onFind = { pinMode = !pinMode },
             onOpenPin = { p -> cardPin = p.id },
@@ -854,25 +855,31 @@ private fun MapChip(text: String, onClick: () -> Unit, modifier: Modifier = Modi
 }
 
 /**
- * The few controls the map needs, floating so the map gets the screen: Follow, Record,
- * + Find, and one slim card for the nearest (or guided) find and the site you're in.
+ * The few controls the map needs, floating so the map gets the screen: Follow, the visit
+ * (Start visit inside a site, or its clock and End), + Add pin, and a card while guiding.
  */
 @Composable
 private fun MapControls(
     settings: Settings, follow: Boolean, pinMode: Boolean, recordingSince: Long?, fix: Fix?, pins: List<Pin>, sites: List<Site>,
+    visit: com.brandonthomas.oldground.data.VisitSession?,
     onFind: () -> Unit, onOpenPin: (Pin) -> Unit, onOpenSite: (Site) -> Unit, onLocate: () -> Unit, modifier: Modifier, guided: Pin? = null,
 ) {
     val ctx = LocalContext.current
-    val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { TrackService.start(ctx) }
+    val here = fix?.let { f -> Sites.siteAt(sites, f.geo) }
+    // Starting a visit asks once for permission to show the "visit in progress" notification.
+    val askNotify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        here?.let { com.brandonthomas.oldground.location.VisitControl.start(ctx, it.id) }
+    }
+    var confirmEnd by remember { mutableStateOf(false) }
+    val since = visit?.startedAt ?: recordingSince
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(recordingSince) {
-        while (recordingSince != null) {
+    LaunchedEffect(since) {
+        while (since != null) {
             now = System.currentTimeMillis()
             kotlinx.coroutines.delay(1_000)
         }
     }
     val nearest = guided ?: fix?.let { f -> pins.minByOrNull { Mercator.distanceMeters(f.geo, it.geo) } }
-    val here = fix?.let { f -> Sites.siteAt(sites, f.geo) }
     Column(modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(
@@ -881,27 +888,39 @@ private fun MapControls(
                 contentAlignment = Alignment.Center,
             ) { GlyphIcon(Glyph.FOLLOW, if (follow) Color.White else C.ink, Modifier.size(21.dp)) }
             Spacer(Modifier.weight(1f))
-            // Record: a red dot to start; while recording, the running clock (tap to stop).
-            Row(
-                Modifier.height(46.dp).shadow(5.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50)).background(C.panel)
-                    .clickable(onClickLabel = if (recordingSince != null) "Stop recording" else "Record track") {
-                        if (recordingSince != null) TrackService.stop(ctx)
-                        else if (Build.VERSION.SDK_INT >= 33 &&
-                            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                        ) askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        else TrackService.start(ctx)
+            // Visits: "Start visit" when you're inside a site; while one is on, its clock and End visit.
+            val visitSite = visit?.let { v -> sites.firstOrNull { it.id == v.siteId } }
+            if (since != null || here != null) Row(
+                Modifier.height(46.dp).widthIn(max = 200.dp).shadow(5.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50)).background(C.panel)
+                    .clickable(onClickLabel = if (since != null) "End visit" else "Start a visit") {
+                        when {
+                            since != null -> confirmEnd = true
+                            here != null && Build.VERSION.SDK_INT >= 33 && settings.recordPath &&
+                                ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED ->
+                                askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            here != null -> com.brandonthomas.oldground.location.VisitControl.start(ctx, here.id)
+                        }
                     }
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                if (recordingSince != null) {
+                if (since != null) {
                     Box(Modifier.size(11.dp).clip(RoundedCornerShape(2.dp)).background(C.bad))
-                    Text(clock(now - recordingSince), color = C.badInk, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("${clock(now - since)} · End", color = C.badInk, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
                 } else {
-                    Box(Modifier.size(11.dp).clip(CircleShape).background(C.bad))
-                    Text("Record", color = C.ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Box(Modifier.size(11.dp).clip(CircleShape).background(C.accent))
+                    Text("Start visit", color = C.ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
+            }
+            if (confirmEnd) ConfirmDialog(
+                "End this visit?",
+                (visitSite?.let { "Your visit to ${it.name}" } ?: "Recording") + " stops at ${clock(now - (since ?: now))}." +
+                    if (visit != null) " Its time and path are saved with the site." else "",
+                "End visit", { confirmEnd = false },
+            ) {
+                confirmEnd = false
+                com.brandonthomas.oldground.location.VisitControl.end(ctx)
             }
             Row(
                 Modifier.height(46.dp).shadow(5.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50)).background(if (pinMode) C.panel else C.accent)

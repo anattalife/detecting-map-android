@@ -144,18 +144,19 @@ private fun TabBar(current: Tab, onSelect: (Tab) -> Unit) {
     }
 }
 
-/** Shown on every tab but the map while a track is recording, so it's never forgotten. */
+/** Shown on every tab but the map while a visit is on, so it's never forgotten. */
 @Composable
 private fun RecordingBar(nav: Nav, modifier: Modifier) {
     val ctx = LocalContext.current
     val data by Repo.data.collectAsState()
     val fix by LocationHub.fix.collectAsState()
-    val since = data.recording?.let { r -> data.tracks.firstOrNull { it.id == r }?.startedAt } ?: return
+    val visit = data.visits.lastOrNull { it.endedAt == null }
+    val since = visit?.startedAt ?: data.recording?.let { r -> data.tracks.firstOrNull { it.id == r }?.startedAt } ?: return
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(since) {
         while (true) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) }
     }
-    val site = fix?.let { f -> Sites.siteAt(data.sites, f.geo) }
+    val site = visit?.let { v -> data.sites.firstOrNull { it.id == v.siteId } } ?: fix?.let { f -> Sites.siteAt(data.sites, f.geo) }
     Row(
         modifier.fillMaxWidth().shadow(10.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).background(C.ink)
             .clickable(onClickLabel = "Back to the map") { nav.tab(Tab.MAP) }.padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
@@ -164,12 +165,12 @@ private fun RecordingBar(nav: Nav, modifier: Modifier) {
     ) {
         Box(Modifier.size(10.dp).clip(CircleShape).background(Color(0xFFE5484D)))
         Text(
-            "Recording ${clock(now - since)}" + (site?.let { " · ${it.name}" } ?: ""),
+            (if (visit != null) "Visit ${clock(now - since)}" else "Recording ${clock(now - since)}") + (site?.let { " · ${it.name}" } ?: ""),
             Modifier.weight(1f), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
         Text(
-            "Stop",
-            Modifier.clip(RoundedCornerShape(50)).background(Color(0x26FFFFFF)).clickable(onClickLabel = "Stop recording") { TrackService.stop(ctx) }
+            if (visit != null) "End visit" else "Stop",
+            Modifier.clip(RoundedCornerShape(50)).background(Color(0x26FFFFFF)).clickable(onClickLabel = "End visit") { com.brandonthomas.oldground.location.VisitControl.end(ctx) }
                 .padding(horizontal = 14.dp, vertical = 7.dp),
             color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
         )

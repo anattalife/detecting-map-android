@@ -136,13 +136,17 @@ fun SiteScreen(nav: Nav, siteId: String, debug: String? = null) {
                 Stat("${finds.count { it.material == "Silver" }}", "silver", Modifier.weight(1f))
                 Stat(visits.sumOf { it.detectingMs }.takeIf { it > 0 }?.let(Sites::formatDuration) ?: "–", "detecting", Modifier.weight(1f))
             }
-            Pill("Start a visit", { nav.go(Screen.Hunt(null, siteId = site.id, startVisit = true)) }, Modifier.fillMaxWidth(), kind = "primary")
+            val visitingHere = data.visits.lastOrNull { it.endedAt == null }?.siteId == site.id
+            if (visitingHere) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Pill("Back to the map", { nav.go(Screen.Hunt(null, siteId = site.id)) }, Modifier.weight(1f), kind = "primary")
+                Pill("End visit", { com.brandonthomas.oldground.location.VisitControl.end(ctx) }, Modifier.weight(1f), kind = "soft")
+            } else Pill("Start a visit", { nav.go(Screen.Hunt(null, siteId = site.id, startVisit = true)) }, Modifier.fillMaxWidth(), kind = "primary")
             Row(verticalAlignment = Alignment.Bottom) {
                 Text("Visits", Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = C.ink)
                 Text("See it on the map", Modifier.clickable { nav.go(Screen.Hunt(null, siteId = site.id)) }.padding(4.dp), color = C.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
             if (visits.isEmpty()) Text(
-                "No visits yet. Tap Start a visit when you get there. Finds you log inside the outline, and the time you record there, show up here by day.",
+                "No visits yet. Tap Start a visit when you get there. Its time, your path and the finds you log inside the outline show up here by day.",
                 color = C.muted, fontSize = 14.sp, lineHeight = 20.sp,
             )
             for (v in visits) VisitCard(v) { nav.go(Screen.Visit(site.id, v.day.toString())) }

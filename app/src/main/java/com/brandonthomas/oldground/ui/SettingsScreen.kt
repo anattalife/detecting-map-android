@@ -71,6 +71,10 @@ fun SettingsScreen(nav: Nav) {
                     Text("Change", color = C.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 Line()
+                Item("Record my path during visits", "Draws where you walked on each visit") {
+                    Toggle(s.recordPath) { v -> Repo.updateSettings { it.copy(recordPath = v) } }
+                }
+                Line()
                 Item("Keep screen on", "While the map is showing") { Toggle(s.keepScreenOn) { v -> Repo.updateSettings { it.copy(keepScreenOn = v) } } }
             }
             Group("Maps") {

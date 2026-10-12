@@ -134,6 +134,19 @@ object Repo {
 
     fun addSite(site: Site) = update { it.copy(sites = listOf(site) + it.sites) }
     fun updateSite(id: String, fn: (Site) -> Site) = update { d -> d.copy(sites = d.sites.map { if (it.id == id) fn(it) else it }) }
+    /** The visit happening now, if any. */
+    val activeVisit get() = current.visits.lastOrNull { it.endedAt == null }
+
+    fun beginVisit(siteId: String) = update { d ->
+        val now = System.currentTimeMillis()
+        d.copy(visits = d.visits.map { if (it.endedAt == null) it.copy(endedAt = now) else it } + VisitSession(siteId, now))
+    }
+
+    fun finishVisit() = update { d ->
+        val now = System.currentTimeMillis()
+        d.copy(visits = d.visits.map { if (it.endedAt == null) it.copy(endedAt = now) else it })
+    }
+
     /** Removes the site only; its finds stay as pins. */
     fun deleteSite(id: String) = update { d -> d.copy(sites = d.sites.filter { it.id != id }) }
 

@@ -95,7 +95,15 @@ object Sites {
         finds: List<Pin>,
         trackPoints: Map<String, List<TrackPt>>,
         zone: ZoneId = ZoneId.systemDefault(),
+        sessions: List<VisitSession> = Repo.current.visits,
     ): List<Visit> {
+        // Time from Start a visit to End visit (or now), by day; preferred over track time.
+        val now = System.currentTimeMillis()
+        val sessionMs = HashMap<LocalDate, Long>()
+        for (v in sessions) if (v.siteId == site.id) {
+            val d = dayOf(v.startedAt, zone)
+            sessionMs[d] = (sessionMs[d] ?: 0L) + ((v.endedAt ?: now) - v.startedAt).coerceAtLeast(0)
+        }
         val ring = site.ring
         val byDayFinds = finds.groupBy { dayOf(it.createdAt, zone) }
         // Track points inside the outline, split into continuous stretches, grouped by day.
@@ -114,13 +122,13 @@ object Sites {
             }
             flush()
         }
-        val days = (byDayFinds.keys + stretches.keys).toList().sortedDescending()
+        val days = (byDayFinds.keys + stretches.keys + sessionMs.keys).toList().distinct().sortedDescending()
         return days.map { day ->
             val tr = stretches[day].orEmpty()
             Visit(
                 day = day,
                 finds = byDayFinds[day].orEmpty().sortedByDescending { it.createdAt },
-                detectingMs = tr.sumOf { s -> if (s.size < 2) 0L else s.last().timeMs - s.first().timeMs },
+                detectingMs = sessionMs[day] ?: tr.sumOf { s -> if (s.size < 2) 0L else s.last().timeMs - s.first().timeMs },
                 walkedM = tr.sumOf { s -> s.zipWithNext { a, b -> Mercator.distanceMeters(LngLat(a.lng, a.lat), LngLat(b.lng, b.lat)) }.sum() },
                 tracks = tr,
             )

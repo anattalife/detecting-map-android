@@ -102,6 +102,10 @@ data class Site(
     val ring get() = outline.map { LngLat(it[0], it[1]) }
 }
 
+/** One trip to a site: from Start a visit to End visit. */
+@Serializable
+data class VisitSession(val siteId: String, val startedAt: Long, val endedAt: Long? = null)
+
 val SITE_ACCESS = listOf("Permission", "Public land", "My property", "Club hunt")
 
 val FIND_CATEGORIES = listOf("Coin", "Relic", "Button", "Jewelry", "Token", "Other")
@@ -144,6 +148,8 @@ data class Settings(
     val alignBase: Layer = Layer.STREETS,
     /** The old map last shown on the Map tab, reopened next time. */
     val lastOldMap: String? = null,
+    /** Record your path (GPS track) while a visit is on. */
+    val recordPath: Boolean = true,
     /** Keep the screen on while the Map tab is showing. */
     val keepScreenOn: Boolean = true,
     /** Remembered layer choices (never OLDMAP, which depends on the map that's open). */
@@ -156,6 +162,8 @@ data class AppData(
     val pins: List<Pin> = emptyList(),
     val tracks: List<TrackMeta> = emptyList(),
     val sites: List<Site> = emptyList(),
+    /** Every visit started at a site; the one with no end is happening now. */
+    val visits: List<VisitSession> = emptyList(),
     /** The track being recorded, if any. */
     val recording: String? = null,
     val settings: Settings = Settings(),
