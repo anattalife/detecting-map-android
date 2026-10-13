@@ -211,9 +211,13 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
     private fun applyOverlay(force: Boolean) {
         val s = style ?: return
         if (force) {
-            s.getLayer("ov")?.let { s.removeLayer(it) }
-            s.getSource("ov")?.let { s.removeSource(it) }
+            for (id in listOf("ov", "ov-under")) {
+                s.getLayer(id)?.let { s.removeLayer(it) }
+                s.getSource(id)?.let { s.removeSource(it) }
+            }
             val r = overlay ?: return
+            // Esri satellite only loads when zoomed in; free USGS imagery fills in below that.
+            val under = if (r.id == "esri") Sources.usgsAerial else null
             val ts = TileSet("2.2.0", r.url).apply {
                 minZoom = r.minZoom
                 maxZoom = r.maxZoom
@@ -228,8 +232,18 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
             // Below the app's own data (tracks, pins…), above the base map.
             val firstData = s.layers.firstOrNull { it.id.startsWith("og-") }
             if (firstData != null) s.addLayerBelow(layer, firstData.id) else s.addLayer(layer)
+            if (under != null) {
+                val uts = TileSet("2.2.0", under.url).apply { maxZoom = under.maxZoom; attribution = under.attribution }
+                s.addSource(RasterSource("ov-under", uts, 256))
+                // Hidden from the Esri zoom up, so the two never stack (the opacity slider stays true).
+                val underLayer = RasterLayer("ov-under", "ov-under").withProperties(
+                    PropertyFactory.rasterOpacity(overlayOpacity), PropertyFactory.rasterFadeDuration(0f),
+                )
+                underLayer.maxZoom = Sources.ESRI_MIN_ZOOM
+                s.addLayerBelow(underLayer, "ov")
+            }
         } else {
-            (s.getLayer("ov") as? RasterLayer)?.setProperties(PropertyFactory.rasterOpacity(overlayOpacity))
+            for (id in listOf("ov", "ov-under")) (s.getLayer(id) as? RasterLayer)?.setProperties(PropertyFactory.rasterOpacity(overlayOpacity))
         }
     }
 

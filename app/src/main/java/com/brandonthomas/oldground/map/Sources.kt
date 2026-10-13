@@ -31,6 +31,8 @@ object Sources {
 
     /** Esri imagery is used only while the app holds a valid token from oldgroundapp.com (see EsriToken). */
     val hasEsri get() = EsriToken.current() != null
+    /** Esri imagery (billed per tile) only when zoomed in this far; the free USGS imagery shows below it. */
+    const val ESRI_MIN_ZOOM = 16f
     private const val ESRI_ATTRIB = "Powered by Esri | Esri, Maxar, Earthstar Geographics, and the GIS User Community"
     private val ESRI_IMAGERY get() =
         "https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=" +
@@ -57,7 +59,7 @@ object Sources {
 
     /** A tile layer for anything except Streets (which is a full vector style). */
     fun raster(layer: Layer, s: Settings, map: OldMap?): Raster? = when (layer) {
-        Layer.AERIAL -> if (hasEsri) Raster("esri", ESRI_IMAGERY, 19f, attribution = ESRI_ATTRIB) else usgsAerial
+        Layer.AERIAL -> if (hasEsri) Raster("esri", ESRI_IMAGERY, 19f, minZoom = ESRI_MIN_ZOOM, attribution = ESRI_ATTRIB) else usgsAerial
         Layer.TOPO -> Raster("topo", TOPO, 16f, attribution = USGS_ATTRIB)
         Layer.LIDAR -> Raster("lidar-${s.lidarStyle}-${s.lidarAzimuth}", lidar(s), 18f, attribution = "USGS 3DEP")
         Layer.OLDMAP -> map?.warp?.takeIf { it.ready }?.let { tiles(map.id, it, "old-${it.dir}-${it.zDone}") }
@@ -79,13 +81,15 @@ object Sources {
     fun rasterStyleJson(r: Raster?, withAerialUnder: Boolean = false, background: String = "#e9e6dc"): String {
         val src = StringBuilder()
         val layers = StringBuilder("""{"id":"bg","type":"background","paint":{"background-color":"$background"}}""")
-        fun add(id: String, url: String, max: Float, attribution: String) {
+        fun add(id: String, url: String, max: Float, attribution: String, min: Float = 0f) {
             if (src.isNotEmpty()) src.append(',')
-            src.append(""""$id":{"type":"raster","tiles":["$url"],"tileSize":256,"maxzoom":${max.toInt()},"attribution":"$attribution"}""")
+            val minJson = if (min > 0f) ""","minzoom":${min.toInt()}""" else ""
+            src.append(""""$id":{"type":"raster","tiles":["$url"],"tileSize":256$minJson,"maxzoom":${max.toInt()},"attribution":"$attribution"}""")
             layers.append(""",{"id":"$id","type":"raster","source":"$id"}""")
         }
         if (withAerialUnder) add("aerial-under", AERIAL, 16f, USGS_ATTRIB)
-        if (r != null) add(r.id, r.url, r.maxZoom, r.attribution)
+        // Only network sources get a minzoom; phone-built tiles keep theirs out of the style (as before).
+        if (r != null) add(r.id, r.url, r.maxZoom, r.attribution, if (r.url.startsWith("http")) r.minZoom else 0f)
         return """{"version":8,"glyphs":"$GLYPHS","sources":{$src},"layers":[$layers]}"""
     }
 }
