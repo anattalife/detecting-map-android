@@ -35,14 +35,18 @@ class TrackService : Service() {
     private var lm: LocationManager? = null
     private var wake: PowerManager.WakeLock? = null
     private var trackId: String? = null
+    private var filter: TrackFilter? = null
 
     private val listener = object : LocationListener {
         override fun onLocationChanged(l: Location) {
             val id = trackId ?: return
-            if (l.hasAccuracy() && l.accuracy > MAX_ACCURACY) return
-            val last = Repo.lastTrackPoint(id)
-            if (last != null && Mercator.distanceMeters(LngLat(last.lng, last.lat), LngLat(l.longitude, l.latitude)) < MIN_STEP) return
-            Repo.appendTrackPoint(id, TrackPt(l.longitude, l.latitude, l.time))
+            val f = filter ?: TrackFilter(Repo.lastTrackPoint(id)).also { filter = it }
+            val pt = f.offer(
+                l.longitude, l.latitude, l.time,
+                if (l.hasAccuracy()) l.accuracy else null,
+                if (l.hasSpeed()) l.speed else null,
+            ) ?: return
+            Repo.appendTrackPoint(id, pt)
         }
         @Deprecated("Deprecated in Java")
         override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
@@ -60,6 +64,7 @@ class TrackService : Service() {
             return START_NOT_STICKY
         }
         val id = Repo.current.recording ?: Repo.startTrack().id
+        if (trackId != id) filter = null
         trackId = id
 
         val type = if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0
@@ -118,7 +123,6 @@ class TrackService : Service() {
         private const val CHANNEL = "track"
         private const val NOTIFICATION_ID = 7
         private const val ACTION_STOP = "stop"
-        const val MAX_ACCURACY = 30f
         const val MIN_STEP = 2.0
 
         fun start(context: Context) {
