@@ -124,6 +124,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         LocationHub.acquire(this)
+        com.brandonthomas.oldground.map.EsriToken.refresh(this)
     }
 
     override fun onPause() {

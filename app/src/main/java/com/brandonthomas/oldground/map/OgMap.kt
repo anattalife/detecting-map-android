@@ -55,6 +55,7 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
     private var style: Style? = null
 
     private var base: Base? = null
+    private var baseSettings: com.brandonthomas.oldground.data.Settings? = null
     private var baseUrlOrJson: Pair<String?, String?>? = null
     private var overlay: Sources.Raster? = null
     private var overlayOpacity = 1f
@@ -79,6 +80,7 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
     private var userGesture = false
 
     init {
+        EsriToken.track(this)
         val opts = MapLibreMapOptions.createFromAttributes(context)
             .textureMode(texture)
             .logoEnabled(false)
@@ -170,9 +172,17 @@ class OgMap(context: Context, texture: Boolean = false, val interactive: Boolean
             is Base.Scan -> null to Sources.rasterStyleJson(b.raster, background = "#ddd8c8")
         }
         base = b
+        baseSettings = settings
         if (want == baseUrlOrJson) return
         baseUrlOrJson = want
         loadBase()
+    }
+
+    /** Rebuilds the base map (when the Esri token arrives or changes). */
+    fun refreshBase() {
+        val b = base ?: return
+        val s = baseSettings ?: return
+        setBase(b, s)
     }
 
     private fun loadBase() {

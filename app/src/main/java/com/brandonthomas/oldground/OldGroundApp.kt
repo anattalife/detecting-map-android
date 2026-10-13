@@ -25,6 +25,7 @@ class OldGroundApp : Application() {
         }
         MapLibre.getInstance(this)
         Repo.init(this)
+        com.brandonthomas.oldground.map.EsriToken.refresh(this)
         com.brandonthomas.oldground.community.Community.init(this)
         // Finish any map tiles that were still being built when the app last closed.
         TileJobs.resumeAll(this)

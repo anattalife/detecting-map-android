@@ -29,12 +29,12 @@ object Sources {
     const val AERIAL = "$USGS/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}"
     private const val USGS_ATTRIB = "USGS The National Map"
 
-    private val ESRI_KEY = com.brandonthomas.oldground.BuildConfig.ESRI_KEY
-    val hasEsri get() = ESRI_KEY.isNotBlank()
+    /** Esri imagery is used only while the app holds a valid token from oldgroundapp.com (see EsriToken). */
+    val hasEsri get() = EsriToken.current() != null
     private const val ESRI_ATTRIB = "Powered by Esri | Esri, Maxar, Earthstar Geographics, and the GIS User Community"
     private val ESRI_IMAGERY get() =
         "https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=" +
-            URLEncoder.encode(ESRI_KEY, "UTF-8")
+            URLEncoder.encode(EsriToken.current() ?: "", "UTF-8")
 
     /** USGS aerial imagery: what offline areas save for Satellite. */
     val usgsAerial = Raster("aerial", AERIAL, 16f, attribution = USGS_ATTRIB)
